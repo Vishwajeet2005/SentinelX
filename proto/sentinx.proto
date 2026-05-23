@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package sentinx;
+option go_package = "./pb";
+
+// SentinX Universal Telemetry Protocol (gRPC / Protobuf Option)
+message TelemetryFrame {
+  float pos_x = 1;
+  float pos_y = 2;
+  float pos_z = 3;
+  float pitch = 4;
+  float yaw = 5;
+  float frame_delta_ms = 6;
+  uint64 timestamp_ms = 7;
+  uint32 input_flags = 8;
+}
+
+message TelemetryPayload {
+  bytes hmac_signature = 1; // 32-byte HMAC-SHA256
+  uint64 client_id = 2;
+  uint64 sequence_id = 3;
+  uint64 timestamp_ms = 4;
+  uint32 nonce = 5;
+  repeated TelemetryFrame frames = 6;
+}
+
+service IngestionService {
+  rpc StreamTelemetry (stream TelemetryPayload) returns (IngestionAck);
+}
+
+message IngestionAck {
+  bool success = 1;
+  string error_message = 2;
+}

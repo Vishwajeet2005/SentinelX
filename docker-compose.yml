@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.4
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - sentinx-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.4
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - sentinx-net
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ./database/clickhouse_schema.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - sentinx-net
+
+  edge-ingest:
+    build:
+      context: ./server
+    ports:
+      - "8080:8080/udp"
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BROKER=kafka:29092
+    networks:
+      - sentinx-net
+
+  ml-inference:
+    build:
+      context: ./ml
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BROKER=kafka:29092
+    networks:
+      - sentinx-net
+
+  dashboard-api:
+    build:
+      context: ./dashboard-api
+    ports:
+      - "4000:4000"
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BROKER=kafka:29092
+    networks:
+      - sentinx-net
+
+  dashboard-ui:
+    build:
+      context: ./dashboard
+    ports:
+      - "3000:3000"
+    networks:
+      - sentinx-net
+
+networks:
+  sentinx-net:
+    driver: bridge
