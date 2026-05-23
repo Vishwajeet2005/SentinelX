@@ -1,22 +1,68 @@
-# 🛡️ SentinX Universal: Low-Latency Anti-Cheat & Moderation Framework
+<div align="center">
+  <h1>🛡️ SentinX Anti-Cheat Architecture</h1>
+  <p><strong>Zero-Allocation Native SDK | High-Throughput Ingestion | Real-Time ML Telemetry | Engine-Native Dashboard</strong></p>
+</div>
 
-**SentinX Universal** is an engine-agnostic, zero-allocation behavior detection and anti-cheat infrastructure. Designed for high-concurrency multiplayer environments (100k+ CCU), it bridges the gap between client-side physics and server-side machine learning.
+## 🌐 Overview
+**SentinX** is an industry-grade, enterprise-ready Anti-Cheat infrastructure designed specifically for high-concurrency Unreal Engine and Unity deployments. It is engineered from the ground up for absolute minimal performance impact on the game server, while providing extreme real-time visibility and machine-learning driven anomaly detection to the Security Operations Center (SOC).
 
-## Features
-- **Zero Heap Allocations:** Lock-free `std::array` ring buffers guarantee zero garbage collection spikes in Unity, and no main thread lagging in Unreal Engine.
-- **Engine-Agnostic C-ABI:** Flat `extern "C"` linkage means effortless bindings for Unreal, Unity, Godot, or any custom engine.
-- **Fail-Open Resiliency:** If the network drops, the SDK natively starts compressing telemetry locally. It will *never* crash or freeze the game.
-- **Forward Linear Prediction:** The Go edge server automatically heals dropped UDP packets by interpolating missing physics frames, drastically lowering false bans.
+## 🚀 Key Features
 
-## Architecture Pipeline
-1. **C++ Telemetry Client**: Packs physics data (X,Y,Z, Yaw, Pitch) into 8-byte aligned raw structs.
-2. **Go Ingestion Edge**: Handles 100k+ UDP packets via concurrent worker pools. Sorts jitter and interpolates missing frames.
-3. **Kafka & ClickHouse**: High-throughput message brokering and persistent time-series analytics.
-4. **Python ONNX Inference**: A machine learning runtime constantly scoring player metrics for aimbot/speedhack likelihood.
-5. **React Dashboard**: Live WebSocket-driven moderation interface for real-time ban control.
+* **Zero-Allocation C++ SDK:** A lockless, ring-buffer driven SDK with an `extern "C"` ABI. Designed to be hooked directly into the Engine's `Tick()` loop. Introduces `< 0.1ms` overhead. Cryptographically signs telemetry via HMAC-SHA256 to prevent spoofing.
+* **Go Edge Ingest:** A high-throughput UDP server written in Go designed to ingest millions of telemetry packets simultaneously. Features synthetic frame-interpolation and jitter mitigation.
+* **Kafka & Clickhouse Pipeline:** Highly scalable data-streaming and columnar database architecture designed to query billions of coordinate events in milliseconds.
+* **Python ONNX Inference:** A decoupled ML inference engine running anomaly-detection heuristics (speedhacks, aim-snapping) over rolling player coordinate traces.
+* **Unreal Engine Styled Dashboard:** A custom-built React Native Desktop Editor that interfaces via WebSocket for live 2D Radar mapping of suspected cheaters.
 
-## Running Locally
+## 📐 Architecture Flow
+
+1. **Client/Server (C++):** Player coordinates (X, Y, Z, Pitch, Yaw) are extracted during the engine tick and pushed to the SentinX Ring Buffer.
+2. **Ingest (Golang):** The Ring Buffer is serialized, signed, and blasted over UDP to the Edge Ingest server.
+3. **Pipeline (Kafka):** Validated packets are published to Apache Kafka event streams.
+4. **Heuristics (Python):** The ONNX ML engine consumes Kafka events, flags statistical anomalies, and publishes Alerts.
+5. **Dashboard (React):** The live SOC UI consumes the WebSocket alert stream, instantly visualizing the flagged actor on a 2D topographical mapping space for manual review or automatic termination.
+
+## 🛠️ Implementation Guide
+
+### 1. Engine Initialization (Unreal Engine C++)
+Initialize the context in your Dedicated Server when a player connects.
+```cpp
+#include "sentinx_sdk.h"
+
+// Initialize Context with Player ID
+SentinxCtx = sentinx_init(HMAC_SECRET, GetPlayerState()->GetUniqueId());
+```
+
+### 2. Tick Logging
+Log transforms into the zero-allocation buffer.
+```cpp
+SentinxTelemetryFrame Frame;
+Frame.pos_x = Location.X;
+Frame.pos_y = Location.Y;
+// ...
+sentinx_push_telemetry(SentinxCtx, &Frame);
+```
+
+### 3. UDP Telemetry Serialization
+Serialize the signed buffer and blast it to the Go Ingest Edge.
+```cpp
+uint8_t OutBuffer[1024];
+int Bytes = sentinx_serialize_payload(SentinxCtx, OutBuffer, 1024);
+MyUDPSocket->SendTo(OutBuffer, Bytes, GoEdgeIP, 8080);
+```
+
+## 💻 Tech Stack
+* **Core SDK:** `C / C++` (C-ABI Compatible)
+* **Ingest Edge:** `Golang`
+* **Message Broker:** `Apache Zookeeper` / `Apache Kafka`
+* **Data Lake:** `Clickhouse`
+* **Inference Engine:** `Python` / `ONNX`
+* **SOC Dashboard:** `Node.js` (WebSockets) / `React` / `Vite`
+* **Containerization:** `Docker` / `Docker Compose`
+
+## ⚙️ Running Locally
+The entire stack is containerized for easy deployment and testing.
 ```bash
 docker-compose up -d --build
 ```
-Navigate to `http://localhost:3000` to view the live dashboard.
+The Dashboard UI will mount to `http://localhost:3000`.
