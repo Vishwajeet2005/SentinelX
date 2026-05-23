@@ -24,27 +24,61 @@
 
 ## 🛠️ Implementation Guide
 
-### 1. Engine Initialization (Unreal Engine C++)
+The SDK exposes a native `extern "C"` ABI, allowing seamless integration into any engine.
+
+### Unreal Engine 5 (C++)
+
 Initialize the context in your Dedicated Server when a player connects.
 ```cpp
 #include "sentinx_sdk.h"
 
-// Initialize Context with Player ID
-SentinxCtx = sentinx_init(HMAC_SECRET, GetPlayerState()->GetUniqueId());
+void AMyPlayerController::BeginPlay() {
+    Super::BeginPlay();
+    // Initialize Context with Player ID
+    SentinxCtx = sentinx_init(HMAC_SECRET, GetPlayerState()->GetUniqueId());
+}
+
+void AMyPlayerController::Tick(float DeltaTime) {
+    Super::Tick(DeltaTime);
+    SentinxTelemetryFrame Frame;
+    Frame.pos_x = GetPawn()->GetActorLocation().X;
+    Frame.pos_y = GetPawn()->GetActorLocation().Y;
+    // ...
+    sentinx_push_telemetry(SentinxCtx, &Frame);
+}
 ```
 
-### 2. Tick Logging
-Log transforms into the zero-allocation buffer.
-```cpp
-SentinxTelemetryFrame Frame;
-Frame.pos_x = Location.X;
-Frame.pos_y = Location.Y;
-// ...
-sentinx_push_telemetry(SentinxCtx, &Frame);
+### Unity 3D (C# via P/Invoke)
+
+Because the SDK is a C-ABI DLL, it hooks natively into Unity using `[DllImport]`.
+```csharp
+using System.Runtime.InteropServices;
+
+public class SentinXIntegrator : MonoBehaviour {
+    [DllImport("sentinx_sdk.dll")]
+    private static extern IntPtr sentinx_init(byte[] secret_key, ulong client_id);
+
+    [DllImport("sentinx_sdk.dll")]
+    private static extern int sentinx_push_telemetry(IntPtr ctx, ref SentinxTelemetryFrame frame);
+
+    private IntPtr ctx;
+
+    void Start() {
+        ctx = sentinx_init(mySecret, SteamID);
+    }
+
+    void Update() {
+        SentinxTelemetryFrame frame = new SentinxTelemetryFrame();
+        frame.pos_x = transform.position.x;
+        frame.pos_y = transform.position.y;
+        // ...
+        sentinx_push_telemetry(ctx, ref frame);
+    }
+}
 ```
 
-### 3. UDP Telemetry Serialization
-Serialize the signed buffer and blast it to the Go Ingest Edge.
+### UDP Telemetry Serialization
+Serialize the signed buffer and blast it to the Go Ingest Edge (`8080`).
 ```cpp
 uint8_t OutBuffer[1024];
 int Bytes = sentinx_serialize_payload(SentinxCtx, OutBuffer, 1024);
