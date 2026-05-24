@@ -1,6 +1,7 @@
 <div align="center">
   <h1>🛡️ SentinX Anti-Cheat Architecture</h1>
   <p><strong>Zero-Allocation Native SDK | High-Throughput Ingestion | Real-Time ML Telemetry | Engine-Native Dashboard</strong></p>
+  <p>🚀 <strong><a href="https://Vishwajeet2005.github.io/SentinelX/">View Live Interactive Dashboard Demo</a></strong></p>
 </div>
 
 ## 🌐 Overview
