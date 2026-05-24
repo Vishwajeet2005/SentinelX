@@ -8,6 +8,7 @@
 **SentinX** is an industry-grade, enterprise-ready Anti-Cheat infrastructure designed specifically for high-concurrency Unreal Engine and Unity deployments. It is engineered from the ground up for absolute minimal performance impact on the game server, while providing extreme real-time visibility and machine-learning driven anomaly detection to the Security Operations Center (SOC).
 
 **Description:** Enterprise anti-cheat for Unreal/Unity — C++ SDK · Go ingest · Kafka · ClickHouse · ONNX ML
+
 **Topics:** anti-cheat, game-dev, cpp, golang, kafka, onnx, unreal-engine, unity
 
 ## 🚀 Key Features
