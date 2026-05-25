@@ -127,11 +127,40 @@ function App() {
       const action = parts[0];
       
       if (action === 'help') {
-        logEvent('Available commands: help, clear, status, ban <id>, ban all');
+        logEvent('Available commands: help, clear, status, spectate <id>, shadowban <id>, kick <id>, ban <id>, ban all');
       } else if (action === 'clear') {
         setLogs([]);
       } else if (action === 'status') {
         logEvent(`Engine Sim: ${simMode ? 'ON' : 'OFF'} | WSS: ${connected ? 'CONNECTED' : 'DISCONNECTED'}`);
+      } else if (action === 'spectate' && parts[1]) {
+        const idToSpectate = parts[1];
+        const alertToSpectate = alerts.find(a => a.id.toLowerCase() === idToSpectate);
+        if (alertToSpectate) {
+          logEvent(`Cmd: Spectate locked onto ${alertToSpectate.id}`);
+          setSelectedAlert(alertToSpectate);
+          setRightTab('radar');
+        } else {
+          logEvent(`Error: Actor ${idToSpectate} not found.`);
+        }
+      } else if (action === 'shadowban' && parts[1]) {
+        const idToBan = parts[1];
+        const alertToBan = alerts.find(a => a.id.toLowerCase() === idToBan);
+        if (alertToBan) {
+          logEvent(`Cmd: Shadowban flag applied to ${alertToBan.id}`);
+          setAlerts(prev => prev.map(a => a.id === alertToBan.id ? { ...a, shadowbanned: true } : a));
+        } else {
+          logEvent(`Error: Actor ${idToBan} not found.`);
+        }
+      } else if (action === 'kick' && parts[1]) {
+        const idToKick = parts[1];
+        const alertToKick = alerts.find(a => a.id.toLowerCase() === idToKick);
+        if (alertToKick) {
+          logEvent(`Cmd: Kicked ${alertToKick.id} from session (No HWID Ban)`);
+          setAlerts(prev => prev.filter(a => a.id !== alertToKick.id));
+          if (selectedAlert?.id === alertToKick.id) setSelectedAlert(null);
+        } else {
+          logEvent(`Error: Actor ${idToKick} not found.`);
+        }
       } else if (action === 'ban' && parts[1]) {
         const idToBan = parts[1];
         if (idToBan === 'all') {
@@ -196,8 +225,8 @@ function App() {
                         className={`tree-node ${selectedAlert?.id === p.id ? 'selected' : ''}`}
                         onClick={() => setSelectedAlert(p)}
                       >
-                        <Target size={12} style={{margin: '0 4px', color: 'var(--ue-alert)'}}/>
-                        <span style={{color: selectedAlert?.id === p.id ? '#fff' : 'var(--ue-alert)'}}>{p.id}</span>
+                        <Target size={12} style={{margin: '0 4px', color: p.shadowbanned ? '#b026ff' : 'var(--ue-alert)'}}/>
+                        <span style={{color: selectedAlert?.id === p.id ? '#fff' : (p.shadowbanned ? '#b026ff' : 'var(--ue-alert)')}}>{p.id}</span>
                       </div>
                     ))}
                   </div>
