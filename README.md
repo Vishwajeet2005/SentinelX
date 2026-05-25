@@ -4,6 +4,8 @@
   <p>🚀 <strong><a href="https://Vishwajeet2005.github.io/SentinelX/">View Live Interactive Dashboard Demo</a></strong></p>
 </div>
 
+![Status](https://img.shields.io/badge/Status-Live%20Dashboard-success) ![Stack](https://img.shields.io/badge/Stack-C%2B%2B%20%7C%20Go%20%7C%20Kafka%20%7C%20Python%20%7C%20React-informational) ![License](https://img.shields.io/badge/License-MIT-green)
+
 ## 🌐 Overview
 **SentinX** is an industry-grade, enterprise-ready Anti-Cheat infrastructure designed specifically for high-concurrency Unreal Engine and Unity deployments. It is engineered from the ground up for absolute minimal performance impact on the game server, while providing extreme real-time visibility and machine-learning driven anomaly detection to the Security Operations Center (SOC).
 
