@@ -15,6 +15,7 @@ function App() {
   const [leftTab, setLeftTab] = useState('outliner'); // 'outliner' or 'log'
   const [rightTab, setRightTab] = useState('details'); // 'details' or 'radar'
   const [bottomTab, setBottomTab] = useState('output'); // 'output' or 'cmd'
+  const [cmdInput, setCmdInput] = useState('');
 
   const [expandedNodes, setExpandedNodes] = useState({ 'US-East-1': true, 'EU-West': true });
   const [expandedCategories, setExpandedCategories] = useState({ transform: true, network: true, heuristics: true });
@@ -113,6 +114,39 @@ function App() {
     setBanned(prev => [{ ...selectedAlert, time: new Date().toISOString() }, ...prev]);
     setAlerts(prev => prev.filter(a => a.id !== selectedAlert.id));
     setSelectedAlert(null);
+  };
+
+  const handleCommand = (e) => {
+    if (e.key === 'Enter') {
+      const cmd = cmdInput.trim();
+      setCmdInput('');
+      if (!cmd) return;
+      logEvent(`> ${cmd}`);
+      
+      const parts = cmd.toLowerCase().split(' ');
+      const action = parts[0];
+      
+      if (action === 'help') {
+        logEvent('Available commands: help, clear, status, ban <id>');
+      } else if (action === 'clear') {
+        setLogs([]);
+      } else if (action === 'status') {
+        logEvent(`Engine Sim: ${simMode ? 'ON' : 'OFF'} | WSS: ${connected ? 'CONNECTED' : 'DISCONNECTED'}`);
+      } else if (action === 'ban' && parts[1]) {
+        const idToBan = parts[1];
+        const alertToBan = alerts.find(a => a.id.toLowerCase() === idToBan);
+        if (alertToBan) {
+          logEvent(`Cmd: DestroyActor ${alertToBan.id} (Banned via Cmd)`);
+          setBanned(prev => [{ ...alertToBan, time: new Date().toISOString() }, ...prev]);
+          setAlerts(prev => prev.filter(a => a.id !== alertToBan.id));
+          if (selectedAlert?.id === alertToBan.id) setSelectedAlert(null);
+        } else {
+          logEvent(`Error: Actor ${idToBan} not found in current session.`);
+        }
+      } else {
+        logEvent(`Unknown command: '${cmd}'. Type 'help' for a list of commands.`);
+      }
+    }
   };
 
   // Organize alerts into World Outliner Tree (Server -> Match -> Player)
@@ -275,7 +309,14 @@ function App() {
           ) : (
             <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                <span style={{color: '#0f0'}}>&gt;</span> 
-               <input type="text" placeholder="Enter engine command..." style={{flex: 1, background: 'transparent', border: 'none', color: '#fff', outline: 'none', fontFamily: 'inherit'}}/>
+               <input 
+                 type="text" 
+                 value={cmdInput}
+                 onChange={(e) => setCmdInput(e.target.value)}
+                 onKeyDown={handleCommand}
+                 placeholder="Enter engine command (try 'help')..." 
+                 style={{flex: 1, background: 'transparent', border: 'none', color: '#fff', outline: 'none', fontFamily: 'inherit'}}
+               />
             </div>
           )}
         </div>
