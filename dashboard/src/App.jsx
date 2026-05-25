@@ -127,21 +127,34 @@ function App() {
       const action = parts[0];
       
       if (action === 'help') {
-        logEvent('Available commands: help, clear, status, ban <id>');
+        logEvent('Available commands: help, clear, status, ban <id>, ban all');
       } else if (action === 'clear') {
         setLogs([]);
       } else if (action === 'status') {
         logEvent(`Engine Sim: ${simMode ? 'ON' : 'OFF'} | WSS: ${connected ? 'CONNECTED' : 'DISCONNECTED'}`);
       } else if (action === 'ban' && parts[1]) {
         const idToBan = parts[1];
-        const alertToBan = alerts.find(a => a.id.toLowerCase() === idToBan);
-        if (alertToBan) {
-          logEvent(`Cmd: DestroyActor ${alertToBan.id} (Banned via Cmd)`);
-          setBanned(prev => [{ ...alertToBan, time: new Date().toISOString() }, ...prev]);
-          setAlerts(prev => prev.filter(a => a.id !== alertToBan.id));
-          if (selectedAlert?.id === alertToBan.id) setSelectedAlert(null);
+        if (idToBan === 'all') {
+          if (alerts.length === 0) {
+            logEvent(`Error: No actors currently tracked in session.`);
+          } else {
+            logEvent(`Cmd: DestroyActor * (Executing mass ban on ${alerts.length} actors)`);
+            const now = new Date().toISOString();
+            const newBans = alerts.map(a => ({ ...a, time: now }));
+            setBanned(prev => [...newBans, ...prev]);
+            setAlerts([]);
+            setSelectedAlert(null);
+          }
         } else {
-          logEvent(`Error: Actor ${idToBan} not found in current session.`);
+          const alertToBan = alerts.find(a => a.id.toLowerCase() === idToBan);
+          if (alertToBan) {
+            logEvent(`Cmd: DestroyActor ${alertToBan.id} (Banned via Cmd)`);
+            setBanned(prev => [{ ...alertToBan, time: new Date().toISOString() }, ...prev]);
+            setAlerts(prev => prev.filter(a => a.id !== alertToBan.id));
+            if (selectedAlert?.id === alertToBan.id) setSelectedAlert(null);
+          } else {
+            logEvent(`Error: Actor ${idToBan} not found in current session.`);
+          }
         }
       } else {
         logEvent(`Unknown command: '${cmd}'. Type 'help' for a list of commands.`);
