@@ -22,7 +22,16 @@ const (
 	WorkerCount   = 100
 )
 
-var secretKey = []byte("REPLACE_WITH_SECURE_32_BYTE_KEY")
+var secretKey []byte
+
+func init() {
+	key := os.Getenv("HMAC_SECRET")
+	if key == "" {
+		log.Println("WARNING: HMAC_SECRET not set, using insecure default key!")
+		key = "REPLACE_WITH_SECURE_32_BYTE_KEY"
+	}
+	secretKey = []byte(key)
+}
 
 // PayloadHeader perfectly packed at 64 bytes
 type PayloadHeader struct {
@@ -70,6 +79,7 @@ type ClientState struct {
 	mu        sync.Mutex
 	lastSeqID uint64
 	lastFrame *JSONFrame
+	lastSeen  time.Time
 }
 
 var clientStates = make(map[uint64]*ClientState)
@@ -79,9 +89,10 @@ func getClientState(clientID uint64) *ClientState {
 	stateMu.Lock()
 	defer stateMu.Unlock()
 	if state, exists := clientStates[clientID]; exists {
+		state.lastSeen = time.Now()
 		return state
 	}
-	state := &ClientState{}
+	state := &ClientState{lastSeen: time.Now()}
 	clientStates[clientID] = state
 	return state
 }
@@ -105,6 +116,25 @@ func main() {
 				if now.Sub(v) > 5*time.Minute { delete(replayCache.cache, k) }
 			}
 			replayCache.Unlock()
+		}
+	}()
+
+	// Garbage Collection for Client States
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			stateMu.Lock()
+			now := time.Now()
+			for k, v := range clientStates {
+				v.mu.Lock()
+				if now.Sub(v.lastSeen) > 10*time.Minute {
+					v.mu.Unlock()
+					delete(clientStates, k)
+				} else {
+					v.mu.Unlock()
+				}
+			}
+			stateMu.Unlock()
 		}
 	}()
 
@@ -189,6 +219,10 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 		return errors.New("payload timestamp variance exceeded")
 	}
 
+	if header.FrameCount > 1024 {
+		return errors.New("frame count exceeds maximum allowed (potential DoS)")
+	}
+
 	frames := make([]TelemetryFrame, header.FrameCount)
 	if err := binary.Read(buf, binary.LittleEndian, &frames); err != nil {
 		return err
@@ -219,6 +253,16 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
             
 			// Half-step interpolation to repair ML tensor continuity
 			ratio := float32(0.5)
+			
+			// Prevent Timestamp Underflow
+			var newTime uint64
+			if end.TimestampMS >= start.TimestampMS {
+				newTime = start.TimestampMS + uint64(float32(end.TimestampMS-start.TimestampMS)*ratio)
+			} else {
+				// Fallback to start time if timestamps are anomalous
+				newTime = start.TimestampMS
+			}
+
 			synthetic := JSONFrame{
 				PosX:           start.PosX + (end.PosX - start.PosX)*ratio,
 				PosY:           start.PosY + (end.PosY - start.PosY)*ratio,
@@ -226,7 +270,7 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 				Pitch:          start.Pitch + (end.Pitch - start.Pitch)*ratio,
 				Yaw:            start.Yaw + (end.Yaw - start.Yaw)*ratio,
 				FrameDeltaMS:   end.FrameDeltaMS,
-				TimestampMS:    start.TimestampMS + uint64(float32(end.TimestampMS - start.TimestampMS)*ratio),
+				TimestampMS:    newTime,
 				InputFlags:     start.InputFlags,
 				IsInterpolated: 1,
 			}
