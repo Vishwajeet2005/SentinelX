@@ -5,10 +5,32 @@ import http from 'http';
 import cors from 'cors';
 
 const app = express();
-app.use(cors());
+
+const ALLOWED_ORIGINS = ['http://localhost:3000', 'https://vishwajeet2005.github.io'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin.toLowerCase())) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS Policy Violation: Origin not allowed'));
+    }
+  }
+}));
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ 
+  server,
+  verifyClient: (info, callback) => {
+    const origin = info.origin ? info.origin.toLowerCase() : '';
+    if (ALLOWED_ORIGINS.includes(origin) || !origin) {
+      callback(true);
+    } else {
+      console.warn(`Blocked WSS connection from unauthorized origin: ${origin}`);
+      callback(false, 403, 'Forbidden');
+    }
+  }
+});
 
 const kafka = new Kafka({
   clientId: 'dashboard-api',
@@ -29,17 +51,21 @@ const runKafka = async () => {
     
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
-        const alert = JSON.parse(message.value.toString());
-        console.log('Broadcasting alert:', alert);
-        
-        wss.clients.forEach(client => {
-          if (client.readyState === 1) { // OPEN
-            client.send(JSON.stringify({
-              type: 'ALERT',
-              data: alert
-            }));
-          }
-        });
+        try {
+          const alert = JSON.parse(message.value.toString());
+          console.log('Broadcasting alert:', alert);
+          
+          wss.clients.forEach(client => {
+            if (client.readyState === 1) { // OPEN
+              client.send(JSON.stringify({
+                type: 'ALERT',
+                data: alert
+              }));
+            }
+          });
+        } catch (e) {
+          console.warn('Dropped malformed alert payload:', e.message);
+        }
       },
     });
   } catch (e) {
