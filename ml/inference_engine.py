@@ -31,7 +31,7 @@ def main():
             bootstrap_servers=[KAFKA_BROKER],
             auto_offset_reset='latest',
             group_id='sentinx-inference-group',
-            value_deserializer=lambda x: json.loads(x.decode('utf-8'))
+            value_deserializer=lambda x: x.decode('utf-8')
         )
         producer = KafkaProducer(
             bootstrap_servers=[KAFKA_BROKER],
@@ -44,7 +44,12 @@ def main():
     logger.info(f"Listening for telemetry on {INPUT_TOPIC}...")
 
     for message in consumer:
-        payload = message.value
+        try:
+            payload = json.loads(message.value)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Dropped malformed telemetry payload: {e}")
+            continue
+
         client_id = payload.get('client_id')
         frames = payload.get('frames', [])
 
