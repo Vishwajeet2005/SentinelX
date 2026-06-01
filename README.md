@@ -23,6 +23,17 @@
 
 ## 📐 Architecture Flow
 
+```mermaid
+graph TD
+    Client[Unreal/Unity Client] -->|UDP Tick| Edge[Go Edge Ingest]
+    Edge -->|Publishes| Kafka[Apache Kafka]
+    Kafka -->|Streams| ML[Python ONNX Inference]
+    ML -->|Flags Anomaly| AlertTopic[Kafka Alerts]
+    Kafka -->|Raw Logs| CH[(Clickhouse DB)]
+    AlertTopic -->|Consumes| API[Node.js WebSocket API]
+    API -->|Live Push| React[React SOC Dashboard]
+```
+
 1. **Client/Server (C++):** Player coordinates (X, Y, Z, Pitch, Yaw) are extracted during the engine tick and pushed to the SentinX Ring Buffer.
 2. **Ingest (Golang):** The Ring Buffer is serialized, signed, and blasted over UDP to the Edge Ingest server.
 3. **Pipeline (Kafka):** Validated packets are published to Apache Kafka event streams.
