@@ -38,6 +38,15 @@ graph TD
     Grafana -->|Visualizes| Prometheus
 ```
 
+## 🧠 Unsupervised LSTM Training & Heuristics
+
+The core detection engine is an **Unsupervised PyTorch LSTM Autoencoder** designed to identify mathematical impossibilities in player physics without relying on known cheat signatures.
+
+1. **Training Data:** The model is trained exclusively on synthetic human telemetry (`df[df['label'] == 0]`). It learns the natural bounds of Unreal Engine physics (gravity curves, friction, max acceleration).
+2. **Reconstruction MSE:** Because it only knows what "normal" looks like, it attempts to reconstruct sliding 60-frame windows. Legitimate movement reconstructs with an MSE of `~10.0`.
+3. **Zero-Day Detection:** When an unknown speedhack, teleport, or violent aim-snap is passed through the network, the LSTM fails to reconstruct the impossible physics curve, causing the MSE to skyrocket to `> 150,000`, immediately triggering a ban threshold.
+4. **ONNX Graph Compilation:** The trained PyTorch weights are dynamically traced and exported to a highly optimized `behavior_autoencoder_v1.onnx` file (IR Version 10) for microsecond inference latency in production clusters.
+
 ## 🛡️ Security Posture & Defenses
 
 SentinX implements multiple layers of defense against network manipulation and protocol attacks:
