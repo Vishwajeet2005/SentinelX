@@ -3,3 +3,5 @@ kafka-python==2.0.2
 numpy==1.26.4
 pandas==2.2.1
 clickhouse-driver==0.2.7
+torch
+onnxscript
