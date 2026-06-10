@@ -47,15 +47,17 @@ services:
     networks:
       - sentinx-net
 
-  ml-inference:
-    build:
-      context: ./ml
-    depends_on:
-      - kafka
-    environment:
-      - KAFKA_BROKER=kafka:29092
-    networks:
-      - sentinx-net
+#  ml-inference:
+#    build:
+#      context: ./ml
+#    depends_on:
+#      - kafka
+#    environment:
+#      - KAFKA_BROKER=kafka:29092
+#    volumes:
+#      - ./models:/app/models
+#    networks:
+#      - sentinx-net
 
   dashboard-api:
     build:

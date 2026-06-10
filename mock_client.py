@@ -7,12 +7,12 @@ import hmac
 import os
 
 # To load secrets if running locally alongside the backend
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 8080
-SECRET_KEY = os.getenv("HMAC_SECRET", "REPLACE_WITH_SECURE_32_BYTE_KEY").encode('utf-8')
+SECRET_KEY = "REPLACE_WITH_SECURE_32_BYTE_KEY".encode('utf-8')
 
 print(f"Starting Unreal Engine Synthetic Data Generator...")
 print(f"Targeting UDP {UDP_IP}:{UDP_PORT} | HMAC Enabled")
@@ -21,39 +21,37 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 # Simulated Player State
 client_id = 1001
-sequence_id = 1
+sequence_id = 1000
 pos_x, pos_y, pos_z = 0.0, 0.0, 100.0  # UE scales in cm (100cm = 1m)
 vel_x, vel_y, vel_z = 0.0, 0.0, 0.0
 pitch, yaw = 0.0, 0.0
 
 # UE Constants
 GRAVITY = -980.0         # UE default gravity (cm/s^2)
-MAX_WALK_SPEED = 600.0   # cm/s
+MAX_WALK_SPEED = 5000.0  # SPEEDHACK ENGAGED (50m/s, matches training distribution)
 JUMP_Z_VELOCITY = 420.0  # cm/s
-ACCELERATION = 2048.0    # cm/s^2
+ACCELERATION = 20000.0   # SPEEDHACK ACCELERATION
 FRICTION = 8.0
 DELTA_MS = 16.666        # 60 FPS
 DELTA_S = DELTA_MS / 1000.0
 
 def generate_smooth_inputs(time_elapsed):
-    """Simulate human-like WASD input and mouse movement using sine waves"""
-    # Smooth, wandering WASD input (-1.0 to 1.0)
-    input_x = math.sin(time_elapsed * 0.5)
-    input_y = math.cos(time_elapsed * 0.3)
+    """Simulate straight line injection to trigger speedhack detection"""
+    # Constant max input in one direction, mimicking the straight line speedhacks in training data
+    input_x = 1.0
+    input_y = 1.0
     
-    # Smooth mouse aiming (drifting)
-    target_pitch = math.sin(time_elapsed * 0.1) * 20.0
-    target_yaw = (time_elapsed * 15.0) % 360.0  # Slowly spinning around
+    target_pitch = 0.0
+    target_yaw = 0.0
     
-    # Jump occasionally (every ~5 seconds)
-    jump = (time_elapsed % 5.0) < 0.1
+    jump = False
     
     return input_x, input_y, target_pitch, target_yaw, jump
 
 start_time = time.time()
 
 while True:
-    frame_count = 6  # Batch 6 frames per packet (~100ms interval)
+    frame_count = 60  # Batch 60 frames per packet (1 second of data)
     frames_bytes = bytearray()
     now_ms = int(time.time() * 1000)
     
@@ -95,6 +93,12 @@ while True:
         pos_y += vel_y * DELTA_S
         pos_z += vel_z * DELTA_S
         
+        # CHEAT: TELEPORT INJECTION (jump wildly across map)
+        import random
+        if random.random() < 0.05:  # 5% chance per frame to teleport
+            pos_x = random.uniform(-25000.0, 25000.0)
+            pos_y = random.uniform(-25000.0, 25000.0)
+            
         # 4. Smooth Camera Interpolation
         pitch += (tg_pitch - pitch) * 10.0 * DELTA_S
         yaw += (tg_yaw - yaw) * 10.0 * DELTA_S
@@ -124,5 +128,5 @@ while True:
     
     sequence_id += 1
     
-    # Wait ~100ms before sending the next batch to perfectly match 60fps pacing
-    time.sleep(0.1)
+    # Wait 1000ms before sending the next batch to perfectly match 60fps pacing
+    time.sleep(1.0)
