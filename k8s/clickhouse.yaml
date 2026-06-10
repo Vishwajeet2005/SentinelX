@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: clickhouse
+spec:
+  serviceName: "clickhouse"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+    spec:
+      containers:
+        - name: clickhouse
+          image: clickhouse/clickhouse-server:latest
+          ports:
+            - containerPort: 8123
+            - containerPort: 9000
+          volumeMounts:
+            - name: clickhouse-data
+              mountPath: /var/lib/clickhouse
+  volumeClaimTemplates:
+    - metadata:
+        name: clickhouse-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 100Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+spec:
+  ports:
+    - port: 8123
+      name: http
+    - port: 9000
+      name: native
+  selector:
+    app: clickhouse
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse-sink
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: clickhouse-sink
+  template:
+    metadata:
+      labels:
+        app: clickhouse-sink
+    spec:
+      containers:
+        - name: clickhouse-sink
+          image: sentinel-clickhouse-sink:latest
+          env:
+            - name: KAFKA_BROKER
+              value: "kafka:9092"
+            - name: CLICKHOUSE_HOST
+              value: "clickhouse"

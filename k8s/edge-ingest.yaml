@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edge-ingest
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: edge-ingest
+  template:
+    metadata:
+      labels:
+        app: edge-ingest
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "2112"
+    spec:
+      containers:
+        - name: edge-ingest
+          image: sentinel-edge-ingest:latest
+          ports:
+            - containerPort: 8080
+              protocol: UDP
+            - containerPort: 2112
+          env:
+            - name: KAFKA_BROKER
+              value: "kafka:9092"
+            - name: HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-secrets
+                  key: hmac-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge-ingest-udp
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: UDP
+  selector:
+    app: edge-ingest
