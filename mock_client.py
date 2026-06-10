@@ -10,9 +10,9 @@ import os
 # from dotenv import load_dotenv
 # load_dotenv()
 
-UDP_IP = "127.0.0.1"
-UDP_PORT = 8080
-SECRET_KEY = "REPLACE_WITH_SECURE_32_BYTE_KEY".encode('utf-8')
+UDP_IP = os.environ.get("EDGE_HOST", "127.0.0.1")
+UDP_PORT = int(os.environ.get("EDGE_PORT", 8080))
+SECRET_KEY = os.environ.get("HMAC_SECRET", "REPLACE_WITH_SECURE_32_BYTE_KEY").encode('utf-8')
 
 print(f"Starting Unreal Engine Synthetic Data Generator...")
 print(f"Targeting UDP {UDP_IP}:{UDP_PORT} | HMAC Enabled")
