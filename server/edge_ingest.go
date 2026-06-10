@@ -30,8 +30,10 @@ var secretKey []byte
 func init() {
 	key := os.Getenv("HMAC_SECRET")
 	if key == "" {
-		log.Println("WARNING: HMAC_SECRET not set, using insecure default key!")
-		key = "REPLACE_WITH_SECURE_32_BYTE_KEY"
+		log.Fatal("FATAL: HMAC_SECRET environment variable is not set. Refusing to start with an insecure configuration.")
+	}
+	if len(key) < 32 {
+		log.Fatal("FATAL: HMAC_SECRET must be at least 32 characters long for cryptographic security.")
 	}
 	secretKey = []byte(key)
 	
