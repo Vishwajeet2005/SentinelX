@@ -47,7 +47,7 @@ services:
       - kafka
     environment:
       - KAFKA_BROKER=kafka:29092
-      - HMAC_SECRET=enterprise_grade_secret_key_12345
+      - HMAC_SECRET=${HMAC_SECRET}
     networks:
       - sentinx-net
 
@@ -139,7 +139,7 @@ services:
     environment:
       - EDGE_HOST=edge-ingest
       - EDGE_PORT=8080
-      - HMAC_SECRET=enterprise_grade_secret_key_12345
+      - HMAC_SECRET=${HMAC_SECRET}
     networks:
       - sentinx-net
 
