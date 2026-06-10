@@ -143,7 +143,10 @@ def main():
         FRAMES_PROCESSED.inc(seq_len)
         
         feature_matrix = []
+        interpolated_count = 0
         for f in frames:
+            if f.get('IsInterpolated', 0) == 1:
+                interpolated_count += 1
             feature_matrix.append([
                 f['PosX'], f['PosY'], f['PosZ'], 
                 f['Pitch'], f['Yaw'], f['FrameDeltaMS']
@@ -184,21 +187,34 @@ def main():
         EVALUATIONS.inc()
         CURRENT_MSE.set(mse_error)
 
+        # SECURITY PATCH: Interpolation Penalty (Lag Switch Cheat Laundering Defense)
+        if interpolated_count > 0:
+            penalty = 1.0 + (interpolated_count * 0.1)
+            mse_error *= penalty
+            logger.info(f"Applied Interpolation Penalty {penalty:.2f}x to Client {client_id}")
+
         # Map MSE to a generic anomaly score 0.0 -> 1.0 for the dashboard UI
         # Typical MSE for normal data is usually < 0.1. We cap it at 2.0.
         anomaly_score = min(mse_error / 2.0, 1.0)
         
-        logger.info(f"Client {client_id} | Frames: {seq_len} | MSE: {mse_error:.4f} | Scaled Anomaly: {anomaly_score:.4f}")
+        logger.info(f"Client {client_id} | Frames: {seq_len} | Interp: {interpolated_count} | MSE: {mse_error:.4f} | Scaled Anomaly: {anomaly_score:.4f}")
 
         # Alert Threshold (MSE > 0.4 usually means a huge deviation)
-        if mse_error >= 0.40:
+        if mse_error >= 0.40 or interpolated_count > 5:
             ALERTS_FIRED.inc()
-            logger.error(f"[ALERT] Client {client_id} FLAG! MSE Error: {mse_error:.4f} (Zero-Day Anomaly Detected)")
+            
+            action_type = 'BAN_EVALUATION'
+            if interpolated_count > 5:
+                action_type = 'LAG_SWITCH_DETECTED'
+                logger.error(f"[ALERT] Client {client_id} FLAG! Lag Switch Detected! Interpolated: {interpolated_count}")
+            else:
+                logger.error(f"[ALERT] Client {client_id} FLAG! MSE Error: {mse_error:.4f} (Zero-Day Anomaly Detected)")
+                
             alert = {
                 'client_id': client_id,
-                'anomaly_score': anomaly_score,
+                'anomaly_score': anomaly_score if interpolated_count <= 5 else 1.0,
                 'timestamp_ms': payload.get('timestamp_ms'),
-                'action': 'BAN_EVALUATION',
+                'action': action_type,
                 'model': 'SentinX_Autoencoder_v1',
                 'alert_timestamp': int(time.time() * 1000)
             }

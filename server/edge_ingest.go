@@ -239,6 +239,19 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 		return errors.New("HMAC signature mismatch (tampered payload)")
 	}
 
+	// Replay Protection: Drop packets with already processed HMAC signatures
+	sigHash := binary.LittleEndian.Uint64(header.HMAC[:8])
+	replayCache.RLock()
+	_, exists := replayCache.cache[sigHash]
+	replayCache.RUnlock()
+	if exists {
+		return errors.New("replay attack detected: signature already processed")
+	}
+
+	replayCache.Lock()
+	replayCache.cache[sigHash] = time.Now()
+	replayCache.Unlock()
+
 	now := uint64(time.Now().UnixNano() / int64(time.Millisecond))
 	var variance uint64
 	if now > header.TimestampMS {
@@ -301,7 +314,7 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 				PosZ:           start.PosZ + (end.PosZ - start.PosZ)*ratio,
 				Pitch:          start.Pitch + (end.Pitch - start.Pitch)*ratio,
 				Yaw:            start.Yaw + (end.Yaw - start.Yaw)*ratio,
-				FrameDeltaMS:   end.FrameDeltaMS,
+				FrameDeltaMS:   16.666, // SERVER AUTHORITATIVE TIME OVERRIDE
 				TimestampMS:    newTime,
 				InputFlags:     start.InputFlags,
 				IsInterpolated: 1,
@@ -313,7 +326,8 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 	for _, f := range frames {
 		processedFrames = append(processedFrames, JSONFrame{
 			PosX: f.PosX, PosY: f.PosY, PosZ: f.PosZ,
-			Pitch: f.Pitch, Yaw: f.Yaw, FrameDeltaMS: f.FrameDeltaMS,
+			Pitch: f.Pitch, Yaw: f.Yaw, 
+			FrameDeltaMS: 16.666, // SERVER AUTHORITATIVE TIME OVERRIDE
 			TimestampMS: f.TimestampMS, InputFlags: f.InputFlags,
 			IsInterpolated: 0,
 		})
