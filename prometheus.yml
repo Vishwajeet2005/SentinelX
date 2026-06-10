@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: 'sentinx-edge-ingest'
+    static_configs:
+      - targets: ['edge-ingest:2112']
+
+  - job_name: 'sentinx-ml-inference'
+    static_configs:
+      - targets: ['ml-inference:8000']

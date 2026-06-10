@@ -47,6 +47,18 @@ services:
     networks:
       - sentinx-net
 
+  clickhouse-sink:
+    build:
+      context: ./database
+    depends_on:
+      - kafka
+      - clickhouse
+    environment:
+      - KAFKA_BROKER=kafka:29092
+      - CLICKHOUSE_HOST=clickhouse
+    networks:
+      - sentinx-net
+
 #  ml-inference:
 #    build:
 #      context: ./ml
