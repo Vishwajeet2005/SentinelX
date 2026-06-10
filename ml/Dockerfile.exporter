@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install heavy ML dependencies cleanly
+RUN pip install --no-cache-dir torch onnx onnxscript
+
+COPY export_onnx.py .
+
+CMD ["python", "export_onnx.py"]
