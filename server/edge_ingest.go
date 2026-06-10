@@ -15,6 +15,9 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"net/http"
 )
 
 const (
@@ -31,7 +34,27 @@ func init() {
 		key = "REPLACE_WITH_SECURE_32_BYTE_KEY"
 	}
 	secretKey = []byte(key)
+	
+	prometheus.MustRegister(packetsReceived)
+	prometheus.MustRegister(framesProcessed)
+	prometheus.MustRegister(droppedPayloads)
 }
+
+// Prometheus Metrics
+var (
+	packetsReceived = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "sentinx_edge_packets_received_total",
+		Help: "Total UDP packets received",
+	})
+	framesProcessed = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "sentinx_edge_frames_processed_total",
+		Help: "Total telemetry frames processed and sent to Kafka",
+	})
+	droppedPayloads = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "sentinx_edge_dropped_payloads_total",
+		Help: "Total payloads dropped due to errors or sequence issues",
+	})
+)
 
 // PayloadHeader perfectly packed at 64 bytes
 type PayloadHeader struct {
@@ -106,6 +129,13 @@ var replayCache = ReplayCache{cache: make(map[uint64]time.Time)}
 func main() {
 	log.Println("Starting SentinX Edge Ingestion Node (with Jitter Buffer & Interpolation)...")
 
+	// Start Prometheus Metrics Server
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		log.Println("Prometheus metrics server running on :2112")
+		log.Fatal(http.ListenAndServe(":2112", nil))
+	}()
+
 	// Garbage Collection for Replay Cache
 	go func() {
 		for {
@@ -170,6 +200,7 @@ func main() {
 		n, _, err := conn.ReadFromUDP(buf)
 		if err != nil { continue }
 		
+		packetsReceived.Inc()
 		payload := make([]byte, n)
 		copy(payload, buf[:n])
 		
@@ -184,6 +215,7 @@ func main() {
 func worker(payloadChan <-chan []byte, producer sarama.SyncProducer) {
 	for payload := range payloadChan {
 		if err := processPayload(payload, producer); err != nil {
+			droppedPayloads.Inc()
 			log.Printf("Payload validation error: %v", err)
 		}
 	}
@@ -286,6 +318,8 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 			IsInterpolated: 0,
 		})
 	}
+	
+	framesProcessed.Add(float64(len(processedFrames)))
 
 	cState.lastSeqID = header.SequenceID
 	if len(processedFrames) > 0 {

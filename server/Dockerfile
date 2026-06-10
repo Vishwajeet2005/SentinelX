@@ -21,5 +21,7 @@ COPY --from=builder /app/edge_ingest /edge_ingest
 
 # UDP Ingestion Port
 EXPOSE 8080/udp
+# Prometheus Metrics Port
+EXPOSE 2112
 
 ENTRYPOINT ["/edge_ingest"]
