@@ -1,21 +1,12 @@
 :root {
-  --bg-color: #fafafa;
+  --bg-color: #f9fafb;
   --panel-bg: #ffffff;
   --border-color: #e5e7eb;
-  --accent: #6366f1;
-  --text-main: #111827;
-  --text-muted: #6b7280;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-color: #0f1115;
-    --panel-bg: #161920;
-    --border-color: #2d3748;
-    --accent: #818cf8;
-    --text-main: #f9fafb;
-    --text-muted: #9ca3af;
-  }
+  --accent: #0f172a;
+  --accent-light: #f1f5f9;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --success: #10b981;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -23,53 +14,109 @@
 body {
   background-color: var(--bg-color);
   color: var(--text-main);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-.saas-panel {
+.saas-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.saas-sidebar {
+  width: 240px;
+  background: var(--panel-bg);
+  border-right: 1px solid var(--border-color);
+  padding: 32px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-item {
+  padding: 10px 24px;
+  margin: 4px 16px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-item:hover {
+  background: var(--accent-light);
+  color: var(--text-main);
+}
+
+.nav-item.active {
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.saas-content {
+  flex: 1;
+  padding: 48px;
+  max-width: 900px;
+}
+
+.saas-card {
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+.saas-card-header {
   padding: 24px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.saas-card-body {
+  padding: 24px;
+  background: #fafafa;
 }
 
 .saas-input {
   width: 100%;
-  padding: 10px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-color);
-  color: var(--text-main);
-  font-family: monospace;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 14px;
-  margin-top: 8px;
+  color: var(--text-main);
+  background: #fff;
+  transition: border 0.2s;
   outline: none;
 }
 
 .saas-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .saas-btn {
-  background: var(--text-main);
-  color: var(--bg-color);
+  background: var(--accent);
+  color: #fff;
   border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
+  padding: 10px 16px;
+  border-radius: 6px;
   font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
-  transition: opacity 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  transition: background 0.2s;
 }
 
-.saas-btn:hover { opacity: 0.9; }
-.saas-btn.secondary {
-  background: var(--panel-bg);
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
+.saas-btn:hover {
+  background: #334155;
 }
-.saas-btn.secondary:hover { background: var(--bg-color); }
+
+.saas-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
