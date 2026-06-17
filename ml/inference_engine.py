@@ -216,7 +216,8 @@ def main():
                 'timestamp_ms': payload.get('timestamp_ms'),
                 'action': action_type,
                 'model': 'SentinX_Autoencoder_v1',
-                'alert_timestamp': int(time.time() * 1000)
+                'alert_timestamp': int(time.time() * 1000),
+                'evidence': feature_matrix
             }
             producer.send(ALERTS_TOPIC, value=alert)
 
