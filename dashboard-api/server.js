@@ -69,9 +69,17 @@ const authenticateHMAC = (req, res, next) => {
                                     .update(payload)
                                     .digest('hex');
                                     
-    // Basic timing safe compare not strictly necessary for demo, but good practice
-    if (signature !== expectedSignature && signature !== "dev-override-token") {
-        return res.status(403).json({ error: "Invalid signature" });
+    try {
+        const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+        const signatureBuffer = Buffer.from(signature, 'hex');
+        
+        if (expectedBuffer.length !== signatureBuffer.length || !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)) {
+            if (signature !== "dev-override-token") {
+                return res.status(403).json({ error: "Invalid signature" });
+            }
+        }
+    } catch (e) {
+        return res.status(400).json({ error: "Malformed signature format" });
     }
     next();
 };
@@ -103,7 +111,9 @@ app.get('/api/v1/players/:clientId/trust', authenticateHMAC, async (req, res) =>
 app.post('/api/v1/hwid/ban', authenticateHMAC, async (req, res) => {
     try {
         const { hwid, reason } = req.body;
-        if (!hwid) return res.status(400).json({ error: "Missing hwid" });
+        if (!hwid || typeof hwid !== 'string' || !/^[A-Fa-f0-9]{64}$/.test(hwid)) {
+            return res.status(400).json({ error: "Invalid HWID format. Must be a 64-character SHA-256 hex string." });
+        }
         
         await redisClient.sAdd('hwid_blacklist', hwid);
         res.json({ success: true, message: `HWID ${hwid} permanently blacklisted.`, reason });
@@ -158,6 +168,7 @@ const runKafka = async () => {
           // Trust Factor Logic
           let currentTrust = await redisClient.hGet('trust_factors', clientId);
           currentTrust = currentTrust ? parseInt(currentTrust, 10) : 100;
+          let oldTrust = currentTrust;
           
           if (alert.action === 'LAG_SWITCH_DETECTED') {
               currentTrust -= 15;
@@ -173,16 +184,25 @@ const runKafka = async () => {
               await redisClient.set(`appeals:${clientId}`, JSON.stringify(alert.evidence));
           }
           
-          // Webhook Dispatcher
-          if (currentTrust === 0 && GAME_SERVER_WEBHOOK_URL) {
+          // Webhook Dispatcher (Only fire ON transition from > 0 to 0)
+          if (oldTrust > 0 && currentTrust === 0 && GAME_SERVER_WEBHOOK_URL) {
               try {
-                  await axios.post(GAME_SERVER_WEBHOOK_URL, {
+                  const payloadData = {
                       action: 'KICK_PLAYER',
                       client_id: clientId,
                       reason: alert.action,
                       timestamp: alert.alert_timestamp
-                  }, { timeout: 2000 });
-                  console.log(`Webhook fired successfully to kick player ${clientId}`);
+                  };
+                  const payloadStr = JSON.stringify(payloadData);
+                  const webhookSignature = crypto.createHmac('sha256', HMAC_SECRET)
+                                                 .update(payloadStr)
+                                                 .digest('hex');
+                  
+                  await axios.post(GAME_SERVER_WEBHOOK_URL, payloadData, { 
+                      headers: { 'x-sentinx-signature': webhookSignature },
+                      timeout: 2000 
+                  });
+                  console.log(`Webhook fired securely to kick player ${clientId}`);
               } catch (webErr) {
                   console.error(`Failed to fire webhook for ${clientId}:`, webErr.message);
               }
