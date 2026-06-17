@@ -86,7 +86,15 @@ function App() {
             baseY: Math.random() * 2000 - 1000
           };
           
-          setAlerts(prev => [newAlert, ...prev].slice(0, 30));
+          setAlerts(prev => {
+            const existingIndex = prev.findIndex(a => a.id === newAlert.id);
+            if (existingIndex >= 0) {
+                const next = [...prev];
+                next[existingIndex] = { ...next[existingIndex], violation: newAlert.violation }; 
+                return next;
+            }
+            return [newAlert, ...prev].slice(0, 30);
+          });
           logEvent(`LogSentinX: Cheat Detected in ${matchId}. Violator: ${id}`);
         }
       }, 1500);

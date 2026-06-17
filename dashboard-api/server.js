@@ -10,7 +10,7 @@ import crypto from 'crypto';
 const app = express();
 app.use(express.json());
 
-const ALLOWED_ORIGINS = ['http://localhost:3000', 'https://vishwajeet2005.github.io'];
+const ALLOWED_ORIGINS = ['http://localhost:3000', 'http://localhost:3005', 'http://localhost:3006', 'http://localhost:3007', 'https://vishwajeet2005.github.io'];
 
 app.use(cors({
   origin: function (origin, callback) {

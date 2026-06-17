@@ -48,20 +48,7 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-    const interval = setInterval(() => {
-      setData(prev => {
-        const next = [...prev.slice(1), {
-          time: prev[prev.length - 1].time + 1,
-          udpPackets: Math.floor(Math.random() * 5000) + 80000,
-          mlLatency: Math.random() * 5 + 10,
-        }];
-        return next;
-      });
-      setCpuUsage(prev => Math.min(100, Math.max(0, prev + (Math.random() * 10 - 5))));
-    }, 1000);
 
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <div style={{ minHeight: '100vh', padding: '40px', maxWidth: '1400px', margin: '0 auto' }}>
