@@ -5,7 +5,8 @@ import axios from 'axios';
 
 function App() {
   const [activeTab, setActiveTab] = useState('sessions'); // sessions, modules, bans
-  const [alerts, setAlerts] = useState([]);
+  const [alertsMap, setAlertsMap] = useState({});
+  const alerts = useMemo(() => Object.values(alertsMap).slice(0, 30), [alertsMap]);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [simMode, setSimMode] = useState(false);
   const [radarData, setRadarData] = useState([]);
@@ -86,14 +87,14 @@ function App() {
             baseY: Math.random() * 2000 - 1000
           };
           
-          setAlerts(prev => {
-            const existingIndex = prev.findIndex(a => a.id === newAlert.id);
-            if (existingIndex >= 0) {
-                const next = [...prev];
-                next[existingIndex] = { ...next[existingIndex], violation: newAlert.violation }; 
-                return next;
+          setAlertsMap(prev => {
+            const next = { ...prev };
+            if (next[newAlert.id]) {
+                next[newAlert.id] = { ...next[newAlert.id], violation: newAlert.violation };
+            } else {
+                next[newAlert.id] = newAlert;
             }
-            return [newAlert, ...prev].slice(0, 30);
+            return next;
           });
           logEvent(`LogSentinX: Cheat Detected in ${matchId}. Violator: ${id}`);
         }
@@ -109,7 +110,7 @@ function App() {
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
       if (msg.type === 'ALERT') {
-        const id = "PlayerController_" + msg.data.client_id;
+        const id = "Actor_" + msg.data.client_id;
         const matchId = "MATCH-LIVE";
         const steamId = "76561198" + msg.data.client_id;
         const violation = "Aimbot (Pitch Snap)";
@@ -122,14 +123,14 @@ function App() {
             baseX: 0,
             baseY: 0
         };
-        setAlerts(prev => {
-            const existingIndex = prev.findIndex(a => a.id === newAlert.id);
-            if (existingIndex >= 0) {
-                const next = [...prev];
-                next[existingIndex] = { ...next[existingIndex], violation: newAlert.violation }; // Update violation if changed
-                return next;
+        setAlertsMap(prev => {
+            const next = { ...prev };
+            if (next[newAlert.id]) {
+                next[newAlert.id] = { ...next[newAlert.id], violation: newAlert.violation };
+            } else {
+                next[newAlert.id] = newAlert;
             }
-            return [newAlert, ...prev].slice(0, 30);
+            return next;
         });
         logEvent(`LogSentinX: Live Cheat Event. Violator: ${id} Score: ${(msg.data.anomaly_score*100).toFixed(1)}%`);
       }
@@ -156,7 +157,11 @@ function App() {
     }
 
     setBanned(prev => [{ ...selectedAlert, time: new Date().toISOString(), hwid: mockHwid }, ...prev]);
-    setAlerts(prev => prev.filter(a => a.id !== selectedAlert.id));
+    setAlertsMap(prev => {
+        const next = { ...prev };
+        delete next[selectedAlert.id];
+        return next;
+    });
     setSelectedAlert(null);
   };
 
@@ -191,7 +196,11 @@ function App() {
         const alertToBan = alerts.find(a => a.id.toLowerCase() === idToBan);
         if (alertToBan) {
           logEvent(`Cmd: Shadowban flag applied to ${alertToBan.id}`);
-          setAlerts(prev => prev.map(a => a.id === alertToBan.id ? { ...a, shadowbanned: true } : a));
+          setAlertsMap(prev => {
+              const next = { ...prev };
+              if (next[alertToBan.id]) next[alertToBan.id].shadowbanned = true;
+              return next;
+          });
         } else {
           logEvent(`Error: Actor ${idToBan} not found.`);
         }
@@ -200,7 +209,11 @@ function App() {
         const alertToKick = alerts.find(a => a.id.toLowerCase() === idToKick);
         if (alertToKick) {
           logEvent(`Cmd: Kicked ${alertToKick.id} from session (No HWID Ban)`);
-          setAlerts(prev => prev.filter(a => a.id !== alertToKick.id));
+          setAlertsMap(prev => {
+              const next = { ...prev };
+              delete next[alertToKick.id];
+              return next;
+          });
           if (selectedAlert?.id === alertToKick.id) setSelectedAlert(null);
         } else {
           logEvent(`Error: Actor ${idToKick} not found.`);
@@ -215,7 +228,7 @@ function App() {
             const now = new Date().toISOString();
             const newBans = alerts.map(a => ({ ...a, time: now }));
             setBanned(prev => [...newBans, ...prev]);
-            setAlerts([]);
+            setAlertsMap({});
             setSelectedAlert(null);
           }
         } else {
@@ -223,7 +236,11 @@ function App() {
           if (alertToBan) {
             logEvent(`Cmd: DestroyActor ${alertToBan.id} (Banned via Cmd)`);
             setBanned(prev => [{ ...alertToBan, time: new Date().toISOString() }, ...prev]);
-            setAlerts(prev => prev.filter(a => a.id !== alertToBan.id));
+            setAlertsMap(prev => {
+                const next = { ...prev };
+                delete next[alertToBan.id];
+                return next;
+            });
             if (selectedAlert?.id === alertToBan.id) setSelectedAlert(null);
           } else {
             logEvent(`Error: Actor ${idToBan} not found in current session.`);
