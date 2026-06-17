@@ -64,16 +64,27 @@ services:
     networks:
       - sentinx-net
 
+  redis:
+    image: redis:alpine
+    container_name: sentinx-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - sentinx-net
+
   dashboard-api:
     build:
       context: ./dashboard-api
     container_name: sentinx-dashboard-api
     depends_on:
       - kafka
+      - redis
     ports:
       - "4000:4000"
     environment:
       - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379
+      - HMAC_SECRET=${HMAC_SECRET}
       - PORT=4000
     networks:
       - sentinx-net
