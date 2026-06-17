@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Target, Shield, Users, Map, Play, Square, ChevronRight, ChevronDown, Monitor, Cpu, Database, Server } from 'lucide-react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts';
+import axios from 'axios';
 
 function App() {
   const [activeTab, setActiveTab] = useState('sessions'); // sessions, modules, bans
@@ -11,6 +12,8 @@ function App() {
   const [logs, setLogs] = useState([]);
   const [banned, setBanned] = useState([]);
   const [connected, setConnected] = useState(false);
+  const [trustScore, setTrustScore] = useState(null);
+  const [evidence, setEvidence] = useState(null);
   
   const [leftTab, setLeftTab] = useState('outliner'); // 'outliner' or 'log'
   const [rightTab, setRightTab] = useState('details'); // 'details' or 'radar'
@@ -34,6 +37,17 @@ function App() {
   useEffect(() => {
     let interval;
     if (selectedAlert) {
+      // Fetch Enterprise API Data
+      const clientId = selectedAlert.id.replace('PlayerController_', '');
+      
+      axios.get(`http://localhost:4000/api/v1/players/${clientId}/trust`, {
+        headers: { 'x-sentinx-signature': 'dev-override-token' }
+      }).then(res => setTrustScore(res.data.trust_score)).catch(() => setTrustScore('Error'));
+      
+      axios.get(`http://localhost:4000/api/v1/appeals/${clientId}/evidence`, {
+        headers: { 'x-sentinx-signature': 'dev-override-token' }
+      }).then(res => setEvidence(res.data.evidence)).catch(() => setEvidence(null));
+
       let x = selectedAlert.baseX;
       let y = selectedAlert.baseY;
       interval = setInterval(() => {
@@ -44,6 +58,8 @@ function App() {
       }, 50);
     } else {
       setRadarData([]);
+      setTrustScore(null);
+      setEvidence(null);
     }
     return () => clearInterval(interval);
   }, [selectedAlert]);
@@ -108,10 +124,22 @@ function App() {
   const toggleNode = (node) => setExpandedNodes(p => ({...p, [node]: !p[node]}));
   const toggleCat = (cat) => setExpandedCategories(p => ({...p, [cat]: !p[cat]}));
 
-  const handleBan = () => {
+  const handleBan = async () => {
     if (!selectedAlert) return;
-    logEvent(`Cmd: DestroyActor ${selectedAlert.id} (Banned)`);
-    setBanned(prev => [{ ...selectedAlert, time: new Date().toISOString() }, ...prev]);
+    const clientId = selectedAlert.id.replace('PlayerController_', '');
+    const mockHwid = [...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    
+    try {
+        await axios.post(`http://localhost:4000/api/v1/hwid/ban`, {
+            hwid: mockHwid,
+            reason: selectedAlert.violation
+        }, { headers: { 'x-sentinx-signature': 'dev-override-token' } });
+        logEvent(`Cmd: DestroyActor ${selectedAlert.id} (HWID BANNED via API)`);
+    } catch (err) {
+        logEvent(`Error: Failed API HWID Ban: ${err.message}`);
+    }
+
+    setBanned(prev => [{ ...selectedAlert, time: new Date().toISOString(), hwid: mockHwid }, ...prev]);
     setAlerts(prev => prev.filter(a => a.id !== selectedAlert.id));
     setSelectedAlert(null);
   };
@@ -263,6 +291,7 @@ function App() {
         <div className="tab-bar">
           <div className={`tab ${rightTab === 'details' ? 'active' : ''}`} onClick={() => setRightTab('details')}>Details Panel</div>
           <div className={`tab ${rightTab === 'radar' ? 'active' : ''}`} onClick={() => setRightTab('radar')}>2D Radar Mapping</div>
+          <div className={`tab ${rightTab === 'evidence' ? 'active' : ''}`} onClick={() => setRightTab('evidence')}>Cold Storage Evidence</div>
         </div>
         
         {!selectedAlert ? (
@@ -302,9 +331,10 @@ function App() {
                 {expandedCategories.heuristics && (
                   <div className="category-content prop-grid">
                     <div className="prop-label">Violation Flag</div><div className="prop-value" style={{color: 'var(--ue-alert)', fontWeight: 700}}>{selectedAlert.violation}</div>
-                    <div className="prop-label">Confidence</div>
+                    <div className="prop-label">Trust Score</div>
                     <div className="prop-value">
-                      <div className="progress-bg"><div className="progress-fill" style={{width: '98%', background: 'var(--ue-alert)'}}></div></div>
+                      <div className="progress-bg"><div className="progress-fill" style={{width: `${trustScore === 'Error' ? 0 : (trustScore || 100)}%`, background: trustScore < 50 ? 'var(--ue-alert)' : 'var(--ue-warning)'}}></div></div>
+                      <span style={{fontSize: '10px', marginLeft: '5px'}}>{trustScore !== null ? trustScore : '...'}</span>
                     </div>
                     <div className="prop-label">Equipped</div><div className="prop-value">{selectedAlert.weapon}</div>
                   </div>
@@ -315,6 +345,22 @@ function App() {
                     <Target size={14} /> Execute Actor (Ban & Kick)
                   </button>
                 </div>
+              </div>
+            ) : rightTab === 'evidence' ? (
+              <div style={{flex: 1, padding: '15px', overflowY: 'auto'}}>
+                <h3 style={{color: '#fff', marginBottom: '10px', fontWeight: 500}}>Ban Appeals Evidence (Raw Tensors)</h3>
+                <p style={{color: '#888', fontSize: '12px', marginBottom: '10px'}}>
+                  Retrieved securely from Redis Cold Storage. Shows the exact 60-frame tensor that triggered the Machine Learning anomaly.
+                </p>
+                {evidence ? (
+                  <div className="mono" style={{background: '#0a0a0a', padding: '15px', fontSize: '11px', whiteSpace: 'pre-wrap', color: '#0f0', border: '1px solid #333', maxHeight: '500px', overflowY: 'auto'}}>
+                    {JSON.stringify(evidence, null, 2)}
+                  </div>
+                ) : (
+                  <div style={{color: '#888', padding: '20px', textAlign: 'center', background: '#111', border: '1px dashed #333'}}>
+                    No cold storage tensor evidence found for this player.
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{flex: 1, display: 'flex', flexDirection: 'column'}}>
