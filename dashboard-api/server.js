@@ -40,7 +40,7 @@ const wss = new WebSocketServer({
 // INFRASTRUCTURE SETUP
 // ──────────────────────────────────────────────
 const HMAC_SECRET = process.env.HMAC_SECRET || 'REPLACE_WITH_SECURE_32_BYTE_KEY';
-const GAME_SERVER_WEBHOOK_URL = process.env.GAME_SERVER_WEBHOOK_URL || null;
+let STUDIO_WEBHOOK = process.env.GAME_SERVER_WEBHOOK_URL || 'https://api.mygame.com/anti-cheat/webhook';
 
 const redisClient = createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
@@ -143,6 +143,47 @@ app.get('/api/v1/appeals/:clientId/evidence', authenticateHMAC, async (req, res)
     }
 });
 
+app.get('/api/v1/analytics/system', authenticateHMAC, async (req, res) => {
+    try {
+        const info = await redisClient.info();
+        const connectedClients = info.match(/connected_clients:(\d+)/)?.[1] || "0";
+        const usedMemory = info.match(/used_memory_human:([a-zA-Z0-9.]+)/)?.[1] || "0B";
+        
+        let packetsTotal = 0;
+        try {
+            const promRes = await axios.get('http://localhost:2112/metrics');
+            const match = promRes.data.match(/sentinx_udp_packets_total (\d+)/);
+            if (match) packetsTotal = parseInt(match[1]);
+        } catch(e) {}
+        
+        res.json({
+            redis_clients: parseInt(connectedClients),
+            redis_memory: usedMemory,
+            ingestion_packets_total: packetsTotal,
+            cpu_usage_pct: Math.min(100, (process.cpuUsage().user / 10000000)).toFixed(1)
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/v1/studio/config', authenticateHMAC, (req, res) => {
+    res.json({
+        webhook: STUDIO_WEBHOOK,
+        api_key_masked: HMAC_SECRET.substring(0, 6) + '**************************'
+    });
+});
+
+app.post('/api/v1/studio/webhook', authenticateHMAC, (req, res) => {
+    const { webhook } = req.body;
+    if (webhook && webhook.startsWith('http')) {
+        STUDIO_WEBHOOK = webhook;
+        res.json({ success: true, webhook: STUDIO_WEBHOOK });
+    } else {
+        res.status(400).json({ error: "Invalid webhook URL" });
+    }
+});
+
 // ──────────────────────────────────────────────
 // WEBSOCKETS & KAFKA CONSUMER
 // ──────────────────────────────────────────────
@@ -185,7 +226,7 @@ const runKafka = async () => {
           }
           
           // Webhook Dispatcher (Only fire ON transition from > 0 to 0)
-          if (oldTrust > 0 && currentTrust === 0 && GAME_SERVER_WEBHOOK_URL) {
+          if (oldTrust > 0 && currentTrust === 0 && STUDIO_WEBHOOK) {
               try {
                   const payloadData = {
                       action: 'KICK_PLAYER',
@@ -198,7 +239,7 @@ const runKafka = async () => {
                                                  .update(payloadStr)
                                                  .digest('hex');
                   
-                  await axios.post(GAME_SERVER_WEBHOOK_URL, payloadData, { 
+                  await axios.post(STUDIO_WEBHOOK, payloadData, { 
                       headers: { 'x-sentinx-signature': webhookSignature },
                       timeout: 2000 
                   });
