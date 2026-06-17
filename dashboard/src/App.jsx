@@ -114,8 +114,16 @@ function App() {
             baseX: 0,
             baseY: 0
         };
-        setAlerts(prev => [newAlert, ...prev].slice(0, 30));
-        logEvent(`LogSentinX: Live Cheat Detected. Violator: ${id} Score: ${(msg.data.anomaly_score*100).toFixed(1)}%`);
+        setAlerts(prev => {
+            const existingIndex = prev.findIndex(a => a.id === newAlert.id);
+            if (existingIndex >= 0) {
+                const next = [...prev];
+                next[existingIndex] = { ...next[existingIndex], violation: newAlert.violation }; // Update violation if changed
+                return next;
+            }
+            return [newAlert, ...prev].slice(0, 30);
+        });
+        logEvent(`LogSentinX: Live Cheat Event. Violator: ${id} Score: ${(msg.data.anomaly_score*100).toFixed(1)}%`);
       }
     };
     return () => ws.close();
