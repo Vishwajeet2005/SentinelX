@@ -25,7 +25,7 @@ function App() {
   const [alertsMap, setAlertsMap] = useState({});
   const alerts = useMemo(() => Object.values(alertsMap).slice(0, 15), [alertsMap]);
   const [selectedAlert, setSelectedAlert] = useState(null);
-  const [simMode, setSimMode] = useState(false);
+  const [simMode, setSimMode] = useState(true); // Default to true for impressive live demo
   const [connected, setConnected] = useState(false);
   const [logs, setLogs] = useState([]);
   const [cmdInput, setCmdInput] = useState('');
