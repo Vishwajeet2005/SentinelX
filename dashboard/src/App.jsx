@@ -4,24 +4,33 @@ import { Target, Shield, Users, Map, Play, Square, ChevronRight, ChevronDown, Mo
 import axios from 'axios';
 
 function App() {
-  const sparklineData = Array.from({length: 20}, () => ({ val: Math.random() * 100 }));
-  const trafficData = Array.from({length: 24}, (_, i) => ({ time: `${i}:00`, pc: 20000 + Math.random()*2000, console: 5000 + Math.random()*500 }));
-  
-  const horizontalBars = [
-    { name: 'N California', aimbot: 80, wallhack: 60, speedhack: 40 },
-    { name: 'London', aimbot: 70, wallhack: 50, speedhack: 30 },
-    { name: 'Paris', aimbot: 60, wallhack: 45, speedhack: 25 },
-    { name: 'Amsterdam', aimbot: 55, wallhack: 40, speedhack: 20 },
-  ];
-
-  const cpuData = [
+  // --- Graph State Logic ---
+  const [sparklineData, setSparklineData] = useState(Array.from({length: 20}, () => ({ val: 50 + Math.random() * 20 })));
+  const [trafficData, setTrafficData] = useState(Array.from({length: 24}, (_, i) => ({ time: `${i}:00`, pc: 20000 + Math.random()*2000, console: 5000 + Math.random()*500 })));
+  const [cpuData, setCpuData] = useState([
     { name: 'Auth', user: 50, sys: 30, idle: 20 },
     { name: 'CDN', user: 60, sys: 20, idle: 20 },
     { name: 'Database', user: 40, sys: 40, idle: 20 },
     { name: 'Web', user: 45, sys: 35, idle: 20 },
-  ];
+  ]);
+  const [horizontalBars, setHorizontalBars] = useState([
+    { name: 'N California', aimbot: 80, wallhack: 60, speedhack: 40 },
+    { name: 'London', aimbot: 70, wallhack: 50, speedhack: 30 },
+    { name: 'Paris', aimbot: 60, wallhack: 45, speedhack: 25 },
+    { name: 'Amsterdam', aimbot: 55, wallhack: 40, speedhack: 20 },
+  ]);
 
-  // --- Dynamic State Logic ---
+  const [metrics, setMetrics] = useState({
+    hardwareBans: 418,
+    incidentsMod: 93,
+    incidentsHigh: 7,
+    incidentsCrit: 0,
+    incidentsRes: 1520
+  });
+
+  const [latency, setLatency] = useState({ web: 0, mobile: 11 });
+
+  // --- Dynamic Tracking Logic ---
   const [alertsMap, setAlertsMap] = useState({});
   const alerts = useMemo(() => Object.values(alertsMap).slice(0, 15), [alertsMap]);
   const [selectedAlert, setSelectedAlert] = useState(null);
@@ -61,10 +70,12 @@ function App() {
       } else if (action === 'ban' && parts[1]) {
         if (parts[1] === 'all') {
             logEvent(`Cmd: Mass ban executed.`);
+            setMetrics(p => ({...p, hardwareBans: p.hardwareBans + alerts.length}));
             setAlertsMap({});
             setSelectedAlert(null);
         } else {
             logEvent(`Cmd: DestroyActor ${parts[1]} (Banned via Cmd)`);
+            setMetrics(p => ({...p, hardwareBans: p.hardwareBans + 1}));
             setAlertsMap(prev => {
                 const next = {...prev};
                 delete next[parts[1]];
@@ -90,10 +101,52 @@ function App() {
     }
   }, [selectedAlert]);
 
-  // WebSocket & Simulation logic
+  // Graph Jitter Simulation
+  useEffect(() => {
+    if (!simMode) return;
+    const interval = setInterval(() => {
+        setSparklineData(prev => {
+            const next = [...prev.slice(1)];
+            next.push({ val: 50 + Math.random() * 30 });
+            return next;
+        });
+
+        setTrafficData(prev => {
+            const next = [...prev.slice(1)];
+            const lastHour = parseInt(prev[prev.length-1].time.split(':')[0]);
+            const nextHour = (lastHour + 1) % 24;
+            next.push({ time: `${nextHour}:00`, pc: 20000 + Math.random()*5000, console: 5000 + Math.random()*1500 });
+            return next;
+        });
+
+        setCpuData(prev => prev.map(c => {
+            const user = Math.max(10, Math.min(80, c.user + (Math.random() * 20 - 10)));
+            const sys = Math.max(10, Math.min(50, c.sys + (Math.random() * 10 - 5)));
+            return { ...c, user, sys, idle: Math.max(0, 100 - user - sys) };
+        }));
+
+        setHorizontalBars(prev => prev.map(b => {
+            return {
+                ...b,
+                aimbot: Math.max(10, b.aimbot + (Math.random() * 6 - 3)),
+                wallhack: Math.max(10, b.wallhack + (Math.random() * 6 - 3)),
+                speedhack: Math.max(10, b.speedhack + (Math.random() * 6 - 3))
+            };
+        }));
+        
+        setLatency({
+            web: Math.floor(Math.random() * 3),
+            mobile: Math.floor(Math.random() * 15 + 5)
+        });
+        
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [simMode]);
+
+  // WebSocket & Alert Simulation logic
   useEffect(() => {
     if (simMode) {
-      logEvent("LogInit: SentinX SDK Bound to Engine Simulation Loop");
+      if (alertsMap && Object.keys(alertsMap).length === 0) logEvent("LogInit: SentinX SDK Bound to Engine Simulation Loop");
       const simInterval = setInterval(() => {
         if (Math.random() > 0.4) {
           const id = "PlayerController_" + Math.floor(Math.random() * 9000);
@@ -112,6 +165,12 @@ function App() {
             baseY: Math.random() * 2000 - 1000,
             time: new Date().toLocaleTimeString()
           };
+          
+          setMetrics(p => ({
+              ...p,
+              incidentsMod: p.incidentsMod + (violation.includes('Wallhack') || violation.includes('Recoil') ? 1 : 0),
+              incidentsHigh: p.incidentsHigh + (violation.includes('Aimbot') || violation.includes('Speed') ? 1 : 0)
+          }));
           
           setAlertsMap(prev => {
             const next = {...prev};
@@ -177,23 +236,23 @@ function App() {
             <div className="top-incidents">
                 <div className="incident-box">
                     <div className="header">Moderate</div>
-                    <div className="val-row"><span className="value">93</span><span className="sub">&darr; 71%</span></div>
-                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="monotone" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div>
+                    <div className="val-row"><span className="value">{metrics.incidentsMod}</span><span className="sub">&darr; 71%</span></div>
+                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="monotone" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
                 </div>
                 <div className="incident-box">
                     <div className="header">High</div>
-                    <div className="val-row"><span className="value">7</span><span className="sub">&darr; 53%</span></div>
-                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="monotone" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div>
+                    <div className="val-row"><span className="value">{metrics.incidentsHigh}</span><span className="sub">&darr; 53%</span></div>
+                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="monotone" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
                 </div>
                 <div className="incident-box">
                     <div className="header">Critical</div>
-                    <div className="val-row"><span className="value">0</span><span className="sub" style={{color: '#38a169'}}>&darr; 1</span></div>
-                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="step" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div>
+                    <div className="val-row"><span className="value">{metrics.incidentsCrit}</span><span className="sub" style={{color: '#38a169'}}>&darr; 1</span></div>
+                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="step" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
                 </div>
                 <div className="incident-box">
                     <div className="header">Resolved</div>
-                    <div className="val-row"><span className="value">1,520</span><span className="sub">&darr; 281</span></div>
-                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="monotone" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div>
+                    <div className="val-row"><span className="value">{metrics.incidentsRes}</span><span className="sub">&darr; 281</span></div>
+                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="monotone" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
                 </div>
             </div>
         </div>
@@ -245,7 +304,13 @@ function App() {
                                         <td style={{color: '#e53e3e', fontWeight: 600}}>{a.violation}</td>
                                         <td>
                                             <button 
-                                                onClick={(e) => { e.stopPropagation(); logEvent(`Cmd: Ban execution for ${a.id}`); setAlertsMap(p=>{const n={...p};delete n[a.id];return n;}); if(selectedAlert?.id===a.id)setSelectedAlert(null);}}
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    logEvent(`Cmd: Ban execution for ${a.id}`); 
+                                                    setMetrics(p => ({...p, hardwareBans: p.hardwareBans + 1}));
+                                                    setAlertsMap(p=>{const n={...p};delete n[a.id];return n;}); 
+                                                    if(selectedAlert?.id===a.id)setSelectedAlert(null);
+                                                }}
                                                 style={{background: '#e53e3e', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, cursor: 'pointer'}}
                                             >BAN</button>
                                         </td>
@@ -280,23 +345,20 @@ function App() {
         </div>
 
         <div className="card">
-            <div className="card-title">Account Management & Appeals (Last Hour)</div>
-            <div style={{marginTop: '40px', padding: '0 20px'}}>
-                <div style={{height: '40px', display: 'flex', background: '#edf2f7', position: 'relative'}}>
-                    <div style={{width: '75%', background: '#38a169', height: '100%'}}></div>
-                    <div style={{width: '15%', background: '#e53e3e', height: '100%'}}></div>
-                    <div style={{width: '10%', background: '#d69e2e', height: '100%'}}></div>
-                    
-                    <div style={{position: 'absolute', right: '10%', top: '-30px', background: '#2d3748', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 700}}>89.00%</div>
-                    <div style={{position: 'absolute', right: '10%', top: '-4px', bottom: '-4px', width: '2px', background: '#2d3748'}}></div>
+            <div className="card-title">Performance Metrics (live bounds)</div>
+            <div style={{display: 'flex', justifyContent: 'space-between', marginTop: '24px'}}>
+                <div>
+                    <div style={{fontSize: '11px', fontWeight: 600, color: '#a0aec0', marginBottom: '8px'}}>Latency</div>
+                    <div style={{fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'baseline', gap: '4px'}}>Web <span style={{fontSize: '24px', fontWeight: 700}}>{latency.web}</span><span style={{fontSize: '12px'}}>ms</span></div>
+                    <div style={{fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'baseline', gap: '4px'}}>Mobile <span style={{fontSize: '20px', fontWeight: 700}}>{latency.mobile}</span><span style={{fontSize: '12px'}}>ms</span></div>
                 </div>
-                <div style={{display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '10px', color: '#a0aec0'}}>
-                    <span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span>
+                <div style={{textAlign: 'center'}}>
+                    <div style={{fontSize: '11px', fontWeight: 600, color: '#a0aec0', marginBottom: '8px'}}>False Positives</div>
+                    <div style={{fontSize: '32px', fontWeight: 700, lineHeight: 1}}>93<span style={{fontSize: '11px', color: '#e53e3e', marginLeft: '4px'}}>&darr; 226</span></div>
                 </div>
-                <div style={{display: 'flex', gap: '16px', marginTop: '24px', fontSize: '11px', fontWeight: 600}}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}><div style={{width: '12px', height:'12px', background:'#38a169'}}></div> Successful Login</div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}><div style={{width: '12px', height:'12px', background:'#e53e3e'}}></div> HWID Blocked</div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}><div style={{width: '12px', height:'12px', background:'#d69e2e'}}></div> Appeal</div>
+                <div style={{textAlign: 'center'}}>
+                    <div style={{fontSize: '11px', fontWeight: 600, color: '#a0aec0', marginBottom: '8px'}}>Hardware Bans</div>
+                    <div style={{fontSize: '32px', fontWeight: 700, lineHeight: 1}}>{metrics.hardwareBans}<span style={{fontSize: '11px', color: '#a0aec0', marginLeft: '4px'}}>&uarr; {metrics.hardwareBans}</span></div>
                 </div>
             </div>
         </div>
@@ -311,9 +373,9 @@ function App() {
                         <div className="horizontal-bar-row" key={row.name}>
                             <div className="h-bar-label">{row.name}</div>
                             <div className="h-bar-track">
-                                <div className="h-bar-fill" style={{width: `${row.aimbot}%`, background: '#fc8181'}}></div>
-                                <div className="h-bar-fill" style={{width: `${row.wallhack}%`, background: '#f6ad55'}}></div>
-                                <div className="h-bar-fill" style={{width: `${row.speedhack}%`, background: '#63b3ed'}}></div>
+                                <div className="h-bar-fill" style={{width: `${row.aimbot}%`, background: '#fc8181', transition: 'width 1.5s ease'}}></div>
+                                <div className="h-bar-fill" style={{width: `${row.wallhack}%`, background: '#f6ad55', transition: 'width 1.5s ease'}}></div>
+                                <div className="h-bar-fill" style={{width: `${row.speedhack}%`, background: '#63b3ed', transition: 'width 1.5s ease'}}></div>
                             </div>
                         </div>
                     ))}
@@ -330,15 +392,18 @@ function App() {
         </div>
 
         <div className="card">
-            <div className="card-title">Infrastructure CPU Usage</div>
+            <div className="card-title" style={{display: 'flex', justifyContent: 'space-between'}}>
+                <span>Infrastructure CPU Usage</span>
+                <span style={{fontSize: '10px', color: '#a0aec0'}}>Updating...</span>
+            </div>
             <div style={{height: '180px'}}>
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={cpuData} margin={{top:0,right:0,left:-20,bottom:0}}>
                         <YAxis tick={{fontSize: 10}} width={30} />
                         <XAxis dataKey="name" tick={{fontSize: 9}} interval={0} angle={-30} textAnchor="end" />
-                        <Bar dataKey="user" stackId="a" fill="#ed8936" />
-                        <Bar dataKey="sys" stackId="a" fill="#fbd38d" />
-                        <Bar dataKey="idle" stackId="a" fill="#fc8181" />
+                        <Bar dataKey="user" stackId="a" fill="#ed8936" isAnimationActive={false} />
+                        <Bar dataKey="sys" stackId="a" fill="#fbd38d" isAnimationActive={false} />
+                        <Bar dataKey="idle" stackId="a" fill="#fc8181" isAnimationActive={false} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
