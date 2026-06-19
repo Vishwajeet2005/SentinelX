@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { LineChart, Line, BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
+import { Target, Shield, Users, Map, Play, Square, ChevronRight, ChevronDown, Monitor, Cpu, Database, Server, Terminal } from 'lucide-react';
+import axios from 'axios';
 
 function App() {
   const sparklineData = Array.from({length: 20}, () => ({ val: Math.random() * 100 }));
@@ -10,26 +12,166 @@ function App() {
     { name: 'London', aimbot: 70, wallhack: 50, speedhack: 30 },
     { name: 'Paris', aimbot: 60, wallhack: 45, speedhack: 25 },
     { name: 'Amsterdam', aimbot: 55, wallhack: 40, speedhack: 20 },
-    { name: 'Frankfurt', aimbot: 50, wallhack: 35, speedhack: 15 },
-    { name: 'N Virginia', aimbot: 40, wallhack: 30, speedhack: 10 },
   ];
 
   const cpuData = [
     { name: 'Auth', user: 50, sys: 30, idle: 20 },
     { name: 'CDN', user: 60, sys: 20, idle: 20 },
     { name: 'Database', user: 40, sys: 40, idle: 20 },
-    { name: 'Load Balancer', user: 70, sys: 10, idle: 20 },
-    { name: 'Network', user: 55, sys: 25, idle: 20 },
-    { name: 'Security', user: 80, sys: 15, idle: 5 },
-    { name: 'Storage', user: 30, sys: 50, idle: 20 },
-    { name: 'Web Server', user: 45, sys: 35, idle: 20 },
+    { name: 'Web', user: 45, sys: 35, idle: 20 },
   ];
+
+  // --- Dynamic State Logic ---
+  const [alertsMap, setAlertsMap] = useState({});
+  const alerts = useMemo(() => Object.values(alertsMap).slice(0, 15), [alertsMap]);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [simMode, setSimMode] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [cmdInput, setCmdInput] = useState('');
+  const [evidence, setEvidence] = useState(null);
+
+  const logsRef = useRef(null);
+
+  const logEvent = (msg) => {
+    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`].slice(-40));
+  };
+
+  useEffect(() => {
+    if (logsRef.current) logsRef.current.scrollTop = logsRef.current.scrollHeight;
+  }, [logs]);
+
+  // Command handling
+  const handleCommand = (e) => {
+    if (e.key === 'Enter') {
+      const cmd = cmdInput.trim();
+      setCmdInput('');
+      if (!cmd) return;
+      logEvent(`> ${cmd}`);
+      
+      const parts = cmd.toLowerCase().split(' ');
+      const action = parts[0];
+      
+      if (action === 'help') {
+        logEvent('Available commands: help, clear, status, ban <id>, ban all');
+      } else if (action === 'clear') {
+        setLogs([]);
+      } else if (action === 'status') {
+        logEvent(`Engine Sim: ${simMode ? 'ON' : 'OFF'} | WSS: ${connected ? 'CONNECTED' : 'DISCONNECTED'}`);
+      } else if (action === 'ban' && parts[1]) {
+        if (parts[1] === 'all') {
+            logEvent(`Cmd: Mass ban executed.`);
+            setAlertsMap({});
+            setSelectedAlert(null);
+        } else {
+            logEvent(`Cmd: DestroyActor ${parts[1]} (Banned via Cmd)`);
+            setAlertsMap(prev => {
+                const next = {...prev};
+                delete next[parts[1]];
+                return next;
+            });
+            if (selectedAlert?.id.toLowerCase() === parts[1]) setSelectedAlert(null);
+        }
+      } else {
+        logEvent(`Unknown command: '${cmd}'. Type 'help' for a list of commands.`);
+      }
+    }
+  };
+
+  // Evidence fetching
+  useEffect(() => {
+    if (selectedAlert) {
+      const clientId = selectedAlert.id.replace('PlayerController_', '');
+      axios.get(`http://localhost:4000/api/v1/appeals/${clientId}/evidence`, {
+        headers: { 'x-sentinx-signature': 'dev-override-token' }
+      }).then(res => setEvidence(res.data.evidence)).catch(() => setEvidence(null));
+    } else {
+      setEvidence(null);
+    }
+  }, [selectedAlert]);
+
+  // WebSocket & Simulation logic
+  useEffect(() => {
+    if (simMode) {
+      logEvent("LogInit: SentinX SDK Bound to Engine Simulation Loop");
+      const simInterval = setInterval(() => {
+        if (Math.random() > 0.4) {
+          const id = "PlayerController_" + Math.floor(Math.random() * 9000);
+          const matchId = "MATCH-" + Math.floor(Math.random() * 9999).toString(16).toUpperCase();
+          const steamId = "76561198" + Math.floor(Math.random() * 99999999);
+          const violations = ["Aimbot (Pitch Snap)", "Speedhack (Tickrate x2.5)", "Wallhack (ESP Read)", "NoRecoil (Memory Patch)"];
+          const violation = violations[Math.floor(Math.random() * violations.length)];
+          const mapName = ["Map_Dust", "Level_Erangel", "Arena_01", "Level_Shipment"][Math.floor(Math.random() * 4)];
+          const server = ["US-East-1", "EU-West", "AP-South"][Math.floor(Math.random() * 3)];
+          
+          const newAlert = {
+            id, matchId, steamId, violation, mapName, server,
+            ping: Math.floor(Math.random() * 80) + 10,
+            weapon: ["AK-47", "AWP Sniper", "M4A1", "Combat Knife"][Math.floor(Math.random() * 4)],
+            baseX: Math.random() * 2000 - 1000,
+            baseY: Math.random() * 2000 - 1000,
+            time: new Date().toLocaleTimeString()
+          };
+          
+          setAlertsMap(prev => {
+            const next = {...prev};
+            next[id] = newAlert;
+            return next;
+          });
+          logEvent(`LogSentinX: Cheat Detected in ${matchId}. Violator: ${id}`);
+        }
+      }, 1500);
+      return () => clearInterval(simInterval);
+    }
+
+    logEvent("LogInit: Attempting connection to WSS broker...");
+    const ws = new WebSocket('ws://localhost:4000');
+    ws.onopen = () => { setConnected(true); logEvent("LogSentinX: WSS CONNECTED to Broker"); };
+    ws.onclose = () => { setConnected(false); logEvent("LogSentinX: WSS DISCONNECTED"); };
+    
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'ALERT') {
+        const id = "PlayerController_" + msg.data.client_id;
+        const newAlert = {
+            id, matchId: "MATCH-LIVE", steamId: "76561198" + msg.data.client_id, 
+            violation: "Aimbot (Pitch Snap)", mapName: "Level_Live", server: "US-East-1",
+            ping: 30, weapon: "AK-47", baseX: 0, baseY: 0, time: new Date().toLocaleTimeString()
+        };
+        setAlertsMap(prev => {
+            const next = {...prev};
+            next[id] = newAlert;
+            return next;
+        });
+        logEvent(`LogSentinX: Live Cheat Event. Violator: ${id}`);
+      }
+    };
+    return () => ws.close();
+  }, [simMode]);
 
   return (
     <div className="dashboard-layout">
-      <h1 className="dashboard-title">Monitoring & Performance</h1>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <h1 className="dashboard-title">Monitoring & Performance</h1>
+        <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+            <div style={{fontSize: '12px', fontWeight: 600, color: connected ? '#38a169' : '#e53e3e', display: 'flex', alignItems: 'center', gap: '6px'}}>
+                <div style={{width: '8px', height: '8px', borderRadius: '50%', background: connected ? '#38a169' : '#e53e3e'}}></div>
+                {connected ? 'LIVE NETWORK CONNECTED' : 'DISCONNECTED'}
+            </div>
+            <button 
+                onClick={() => setSimMode(!simMode)}
+                style={{
+                    background: simMode ? '#e53e3e' : '#3182ce', color: '#fff', border: 'none', padding: '8px 16px', 
+                    borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+            >
+                {simMode ? <Square size={14}/> : <Play size={14}/>} {simMode ? 'Stop Simulation' : 'Simulate Engine Detections'}
+            </button>
+        </div>
+      </div>
 
       <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px'}}>
+        {/* Top left incidents */}
         <div className="card">
             <div className="card-title">Anti-Cheat Incident Management (last 24 hours)</div>
             <div className="top-incidents">
@@ -56,47 +198,84 @@ function App() {
             </div>
         </div>
 
-        <div className="card">
-            <div className="card-title">Performance Metrics (last 24 hours)</div>
-            <div style={{display: 'flex', justifyContent: 'space-between'}}>
-                <div>
-                    <div style={{fontSize: '11px', fontWeight: 600, color: '#a0aec0', marginBottom: '8px'}}>Latency</div>
-                    <div style={{fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'baseline', gap: '4px'}}>Web <span style={{fontSize: '24px', fontWeight: 700}}>0</span><span style={{fontSize: '12px'}}>ms</span></div>
-                    <div style={{fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'baseline', gap: '4px'}}>Mobile <span style={{fontSize: '20px', fontWeight: 700}}>11</span><span style={{fontSize: '12px'}}>ms</span></div>
-                </div>
-                <div>
-                    <div style={{fontSize: '11px', fontWeight: 600, color: '#a0aec0', marginBottom: '8px'}}>Response Time</div>
-                    <div style={{fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'baseline', gap: '4px'}}>Web <span style={{fontSize: '20px', fontWeight: 700}}>418</span><span style={{fontSize: '12px'}}>ms</span></div>
-                    <div style={{fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'baseline', gap: '4px'}}>Mobile <span style={{fontSize: '20px', fontWeight: 700}}>418</span><span style={{fontSize: '12px'}}>ms</span></div>
-                </div>
-                <div style={{textAlign: 'center'}}>
-                    <div style={{fontSize: '11px', fontWeight: 600, color: '#a0aec0', marginBottom: '8px'}}>False Positives</div>
-                    <div style={{fontSize: '32px', fontWeight: 700, lineHeight: 1}}>93<span style={{fontSize: '11px', color: '#e53e3e', marginLeft: '4px'}}>&darr; 226</span></div>
-                </div>
-                <div style={{textAlign: 'center'}}>
-                    <div style={{fontSize: '11px', fontWeight: 600, color: '#a0aec0', marginBottom: '8px'}}>Hardware Bans</div>
-                    <div style={{fontSize: '32px', fontWeight: 700, lineHeight: 1}}>418<span style={{fontSize: '11px', color: '#a0aec0', marginLeft: '4px'}}>&uarr; 418</span></div>
-                </div>
+        {/* Top Right Cmd Log */}
+        <div className="card" style={{display: 'flex', flexDirection: 'column'}}>
+            <div className="card-title" style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Terminal size={14}/> SOC Command Interface</div>
+            <div ref={logsRef} style={{flex: 1, background: '#1a202c', color: '#a0aec0', fontFamily: 'monospace', fontSize: '11px', padding: '12px', borderRadius: '4px', overflowY: 'auto', maxHeight: '120px'}}>
+                {logs.map((l, i) => <div key={i}>{l}</div>)}
+            </div>
+            <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', background: '#edf2f7', padding: '4px 12px', borderRadius: '4px'}}>
+                <span style={{color: '#4a5568', fontWeight: 700}}>&gt;</span>
+                <input 
+                    type="text" 
+                    value={cmdInput} 
+                    onChange={e => setCmdInput(e.target.value)} 
+                    onKeyDown={handleCommand}
+                    placeholder="Enter command (e.g. 'help')..."
+                    style={{background: 'transparent', border: 'none', outline: 'none', flex: 1, fontSize: '12px', color: '#2d3748', fontFamily: 'monospace'}}
+                />
             </div>
         </div>
       </div>
 
       <div className="chart-row">
-        <div className="card">
-            <div className="card-title">Unique Players (by hour)</div>
-            <div style={{height: '200px'}}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trafficData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <YAxis tick={{fontSize: 10}} width={40} />
-                        <Line type="step" dataKey="pc" stroke="#e53e3e" strokeWidth={2} dot={{r: 2}} />
-                        <Line type="step" dataKey="console" stroke="#3182ce" strokeWidth={2} dot={{r: 2}} />
-                    </LineChart>
-                </ResponsiveContainer>
+        {/* Live Detections Feed (Replaces static Banned Processes table) */}
+        <div className="card" style={{gridColumn: 'span 2'}}>
+            <div className="card-title" style={{display: 'flex', justifyContent: 'space-between'}}>
+                <span>Live ML Detections Feed</span>
+                <span style={{color: '#e53e3e', fontSize: '11px'}}>{alerts.length} Active Alerts</span>
             </div>
-            <div style={{display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '11px'}}>
-                <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}><div style={{width:'8px',height:'8px',background:'#3182ce',borderRadius:'50%'}}></div> PC Traffic</div>
-                <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}><div style={{width:'8px',height:'8px',background:'#e53e3e',borderRadius:'50%'}}></div> Console Traffic</div>
+            
+            <div style={{display: 'flex', gap: '16px'}}>
+                {/* Table */}
+                <div style={{flex: 1, maxHeight: '250px', overflowY: 'auto'}}>
+                    <table className="data-table">
+                        <thead style={{position: 'sticky', top: 0, background: '#fff'}}>
+                            <tr><th>Time</th><th>Player ID</th><th>Match ID</th><th>Violation</th><th>Action</th></tr>
+                        </thead>
+                        <tbody>
+                            {alerts.length === 0 ? (
+                                <tr><td colSpan="5" style={{textAlign: 'center', padding: '20px', color: '#a0aec0'}}>No live detections currently active.</td></tr>
+                            ) : (
+                                alerts.map(a => (
+                                    <tr key={a.id} style={{background: selectedAlert?.id === a.id ? '#edf2f7' : 'transparent', cursor: 'pointer'}} onClick={() => setSelectedAlert(a)}>
+                                        <td>{a.time}</td>
+                                        <td style={{fontWeight: 600}}>{a.id}</td>
+                                        <td style={{color: '#718096'}}>{a.matchId}</td>
+                                        <td style={{color: '#e53e3e', fontWeight: 600}}>{a.violation}</td>
+                                        <td>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); logEvent(`Cmd: Ban execution for ${a.id}`); setAlertsMap(p=>{const n={...p};delete n[a.id];return n;}); if(selectedAlert?.id===a.id)setSelectedAlert(null);}}
+                                                style={{background: '#e53e3e', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, cursor: 'pointer'}}
+                                            >BAN</button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Evidence Panel */}
+                <div style={{width: '350px', background: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '12px', display: 'flex', flexDirection: 'column'}}>
+                    <div style={{fontSize: '11px', fontWeight: 700, color: '#4a5568', textTransform: 'uppercase', marginBottom: '8px'}}>Cold Storage Evidence</div>
+                    {selectedAlert ? (
+                        <>
+                            <div style={{fontSize: '12px', marginBottom: '12px'}}>
+                                <span style={{fontWeight: 600}}>Target:</span> {selectedAlert.id} <br/>
+                                <span style={{fontWeight: 600}}>SteamID:</span> {selectedAlert.steamId} <br/>
+                                <span style={{fontWeight: 600}}>Server:</span> {selectedAlert.server}
+                            </div>
+                            <div style={{flex: 1, background: '#1a202c', color: '#a3e635', fontFamily: 'monospace', fontSize: '10px', padding: '8px', borderRadius: '4px', overflowY: 'auto', whiteSpace: 'pre-wrap'}}>
+                                {evidence ? JSON.stringify(evidence, null, 2) : 'Fetching tensor data...'}
+                            </div>
+                        </>
+                    ) : (
+                        <div style={{flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a0aec0', fontSize: '12px', textAlign: 'center'}}>
+                            Select a row to view associated PyTorch Tensor evidence.
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
 
@@ -117,36 +296,9 @@ function App() {
                 <div style={{display: 'flex', gap: '16px', marginTop: '24px', fontSize: '11px', fontWeight: 600}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}><div style={{width: '12px', height:'12px', background:'#38a169'}}></div> Successful Login</div>
                     <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}><div style={{width: '12px', height:'12px', background:'#e53e3e'}}></div> HWID Blocked</div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}><div style={{width: '12px', height:'12px', background:'#d69e2e'}}></div> Appeal Submitted</div>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}><div style={{width: '12px', height:'12px', background:'#d69e2e'}}></div> Appeal</div>
                 </div>
             </div>
-        </div>
-
-        <div className="card">
-            <div className="card-title">Currently Banned Processes</div>
-            <table className="data-table">
-                <thead>
-                    <tr><th>ID</th><th>Application</th><th>Process</th><th>Last Seen</th><th>Progress</th></tr>
-                </thead>
-                <tbody>
-                    {['ID-001','ID-002','ID-003','ID-004','ID-005'].map(id => (
-                        <tr key={id}>
-                            <td>{id}</td>
-                            <td style={{fontWeight: 600}}>GAME_CLIENT</td>
-                            <td>engine.exe</td>
-                            <td>2026-06-19 14:00</td>
-                            <td>
-                                <div className="progress-bar">
-                                    <div className={`progress-segment ${Math.random()>0.5?'active':''}`}></div>
-                                    <div className={`progress-segment ${Math.random()>0.5?'active':''}`}></div>
-                                    <div className={`progress-segment ${Math.random()>0.5?'active':''}`}></div>
-                                    <div className={`progress-segment ${Math.random()>0.5?'active':''}`}></div>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
         </div>
       </div>
 
