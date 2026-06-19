@@ -1,11 +1,15 @@
 :root {
-  --bg-color: #050505;
-  --panel-bg: rgba(20, 20, 25, 0.6);
-  --border-color: rgba(255, 255, 255, 0.05);
-  --accent: #00e5ff;
-  --accent-glow: rgba(0, 229, 255, 0.4);
-  --text-main: #ffffff;
-  --text-muted: #888899;
+  --bg-color: #fafafa;
+  --panel-bg: #ffffff;
+  --border-color: #eaeaea;
+  --accent: #9b82ff;
+  --accent-light: #e6e0ff;
+  --accent-glow: rgba(155, 130, 255, 0.4);
+  --text-main: #1a1a1a;
+  --text-muted: #6b7280;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #ef4444;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,47 +19,140 @@ body {
   color: var(--text-main);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
-  background-image: 
-    radial-gradient(circle at 15% 50%, rgba(0, 229, 255, 0.05), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(176, 38, 255, 0.05), transparent 25%);
 }
 
-.glass-panel {
-  background: var(--panel-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+.dashboard-header {
+  border-bottom: 1px solid var(--border-color);
+  background: #fff;
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.glass-panel:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 15px rgba(0, 229, 255, 0.1);
-}
-
-.stat-value {
-  font-size: 2.5rem;
+.brand-title {
+  font-size: 1.25rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff 0%, #aaa 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-top: 10px;
+  color: var(--text-main);
 }
 
-.stat-label {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+.nav-tabs {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 32px;
+  background: #fff;
+}
+
+.nav-tab {
+  padding: 12px 0;
+  font-size: 0.9rem;
+  font-weight: 500;
   color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+}
+
+.nav-tab.active {
+  color: var(--text-main);
+}
+
+.nav-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--text-main);
+}
+
+.container {
+  padding: 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.top-bar {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.date-picker {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.glow-text {
-  color: var(--accent);
-  text-shadow: 0 0 10px var(--accent-glow);
+.alert-banner {
+  background: #fbf7ff;
+  border: 1px solid #f3ebff;
+  color: #7b52cc;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.glass-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+}
+
+.chart-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.stat-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+
+.stat-table th, .stat-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.85rem;
+}
+
+.stat-table th {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.donut-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.donut-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-main);
 }
