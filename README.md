@@ -17,7 +17,7 @@
 
 ---
 
-## 🌐 Executive Summary
+## Executive Summary
 
 **SentinX** is an industry-grade, enterprise-ready Anti-Cheat infrastructure designed specifically for high-concurrency multiplayer environments (Unreal Engine / Unity). 
 
@@ -27,7 +27,7 @@ By leveraging an Unsupervised LSTM Autoencoder, SentinX completely abandons trad
 
 ---
 
-## 🚀 Architectural Highlights
+## Architectural Highlights
 
 ### 1. Zero-Allocation C++ Engine SDK
 A lockless, ring-buffer driven C++ SDK with an `extern "C"` ABI. Designed to be hooked directly into the game engine's `Tick()` loop. 
@@ -54,7 +54,7 @@ A stunning, web-based React dashboard featuring a highly professional SaaS aesth
 
 ---
 
-## 📐 System Design & Topology
+## System Design & Topology
 
 ```mermaid
 graph TD
@@ -86,17 +86,17 @@ graph TD
 
 ---
 
-## 🛡️ Live Interactive Demo
+## Live Interactive Demo
 
 We have deployed the React SOC Dashboard to GitHub Pages so you can interact with the Security Operations Center firsthand. 
 
-**🚀 [Launch the SentinelX Dashboard Demo](https://Vishwajeet2005.github.io/SentinelX/)**
+**[Launch the SentinelX Dashboard Demo](https://Vishwajeet2005.github.io/SentinelX/)**
 
 *Note: The live demo runs in an automated "Simulation Mode", generating realistic anomaly payloads and streaming fake telemetry to demonstrate the dynamic UI graphs and real-time alert systems.*
 
 ---
 
-## ⚙️ Local Deployment
+## Local Deployment
 
 ### Requirements
 * Docker & Docker Compose
@@ -126,7 +126,7 @@ kubectl apply -f k8s/
 
 ---
 
-## 🧠 Why Unsupervised Learning?
+## Why Unsupervised Learning?
 
 Traditional Anti-Cheats rely on **Signature Scanning** (scanning memory for known cheat engine hashes) or **Kernel-Level drivers**. While SentinX does include Ring-0 protections, its primary detection vector is mathematical.
 
@@ -134,5 +134,5 @@ By utilizing an **Unsupervised Autoencoder**, SentinX does not need to know what
 
 ---
 <div align="center">
-  <p>Built with ⚡ for high-performance multiplayer security.</p>
+  <p>Built for high-performance multiplayer security.</p>
 </div>
