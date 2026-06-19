@@ -1,90 +1,138 @@
 <div align="center">
-  <h1>🛡️ SentinX Anti-Cheat Architecture (Enterprise Edition)</h1>
-  <p><strong>Zero-Allocation Native SDK | High-Throughput Ingestion | Unsupervised PyTorch ML | K8s Scalability | Real-Time Observability</strong></p>
-  <p>🚀 <strong><a href="https://Vishwajeet2005.github.io/SentinelX/">View Live Interactive Dashboard Demo</a></strong></p>
+  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-check.svg" width="80" alt="SentinX Logo" />
+  <h1>SentinX Enterprise Anti-Cheat Architecture</h1>
+
+  <p><strong>Zero-Allocation Native C++ SDK • High-Throughput Go Ingestion • Unsupervised PyTorch ML • Real-Time SOC Dashboard</strong></p>
+
+  <p>
+    <a href="https://Vishwajeet2005.github.io/SentinelX/"><b>View Live Interactive Dashboard Demo</b></a>
+  </p>
+
+  <p>
+    <a href="#overview"><img src="https://img.shields.io/badge/Status-Enterprise_Production-success?style=for-the-badge" alt="Status"></a>
+    <a href="#tech-stack"><img src="https://img.shields.io/badge/Stack-C%2B%2B%20%7C%20Go%20%7C%20PyTorch%20%7C%20Kafka%20%7C%20React-informational?style=for-the-badge" alt="Stack"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License"></a>
+  </p>
 </div>
 
-![Status](https://img.shields.io/badge/Status-Enterprise%20Production-success) ![Stack](https://img.shields.io/badge/Stack-C%2B%2B%20%7C%20Go%20%7C%20Kafka%20%7C%20PyTorch%20%7C%20React%20%7C%20K8s-informational) ![License](https://img.shields.io/badge/License-MIT-green)
+---
 
-## 🌐 Overview
-**SentinX** is an industry-grade, enterprise-ready Anti-Cheat infrastructure designed specifically for high-concurrency Unreal Engine and Unity deployments. Engineered from the ground up for absolute minimal performance impact on the game server, it provides extreme real-time visibility, machine-learning-driven zero-day anomaly detection, and massive horizontal scalability to the Security Operations Center (SOC).
+## 🌐 Executive Summary
 
-The Enterprise Edition leverages an Unsupervised LSTM Autoencoder to detect unknown cheat signatures (Aimbots, Speedhacks, Teleports) by learning the latent distribution of legitimate human telemetry.
+**SentinX** is an industry-grade, enterprise-ready Anti-Cheat infrastructure designed specifically for high-concurrency multiplayer environments (Unreal Engine / Unity). 
 
-## 🚀 Key Features
+Engineered from the ground up to guarantee absolute minimal performance impact on the game server, SentinX provides **extreme real-time observability**, **machine-learning-driven zero-day anomaly detection**, and **massive horizontal scalability** to the Security Operations Center (SOC). 
 
-* **Zero-Allocation C++ SDK:** A lockless, ring-buffer driven SDK with an `extern "C"` ABI. Designed to be hooked directly into the Engine's `Tick()` loop. Introduces `< 0.1ms` overhead. Cryptographically signs telemetry via HMAC-SHA256.
-* **Go Edge Ingestion Node:** High-throughput UDP server written in Go `1.23`. Engineered to ingest millions of telemetry packets simultaneously with native Prometheus observability, Replay Attack protection, and Server-Authoritative Time Dilation defenses.
-* **Unsupervised PyTorch ML Engine:** An LSTM Autoencoder trained purely on legitimate human data. Evaluates sliding windows of 60 frames to assign Anomaly Scores (Reconstruction MSE). Actively detects **Lag-Switch Cheat Laundering** via Interpolation Penalty heuristics.
-* **Kafka & ClickHouse Data Lake:** Highly scalable data-streaming and columnar database architecture designed to archive and query billions of coordinate events in milliseconds.
-* **Enterprise Observability:** Fully instrumented with Prometheus metrics and Grafana dashboards for monitoring telemetry throughput, ML inference latencies, and anomaly detection rates.
-* **Kubernetes (K8s) Ready:** Includes production-ready manifests with Horizontal Pod Autoscaling (HPA) for seamless deployment to EKS/GKE.
-* **Real-Time SOC Dashboard:** A custom React Native Desktop Editor that interfaces via WebSocket for live 2D Radar mapping of suspected cheaters.
+By leveraging an Unsupervised LSTM Autoencoder, SentinX completely abandons traditional "signature-based" ban lists. Instead, it detects mathematically impossible player physics (Aimbots, Speedhacks, Teleports) by learning the latent distribution of legitimate human telemetry and mathematically flagging anomalies in real-time.
 
-## 📐 Architecture Flow
+---
+
+## 🚀 Architectural Highlights
+
+### 1. Zero-Allocation C++ Engine SDK
+A lockless, ring-buffer driven C++ SDK with an `extern "C"` ABI. Designed to be hooked directly into the game engine's `Tick()` loop. 
+* **Performance:** Introduces `< 0.1ms` overhead per frame. 
+* **Security:** Cryptographically signs telemetry payloads via HMAC-SHA256 to prevent memory tampering and packet spoofing.
+
+### 2. High-Throughput Go Edge Ingestion
+A highly concurrent UDP edge server written in Go `1.23`. Engineered to ingest millions of telemetry packets simultaneously.
+* **Defenses:** Native Replay Attack protection, Server-Authoritative Time Dilation enforcement, and dynamic packet-loss interpolation.
+* **Observability:** Fully instrumented with Prometheus endpoints for sub-millisecond latency tracking.
+
+### 3. Unsupervised PyTorch ML Pipeline
+The core detection engine is an **LSTM Autoencoder** trained entirely on legitimate human gameplay.
+* **Zero-Day Detection:** Because the model only knows what "normal" physics look like, any unknown aim-snap or speedhack fails to reconstruct, causing the Mean Squared Error (MSE) to skyrocket and trigger an immediate ban.
+* **Cheat Laundering Defense:** Actively penalizes artificial frame interpolation, instantly detecting attackers attempting to hide aimbots via Lag-Switches.
+* **Performance:** ONNX Graph compilation (IR Version 10) allows for microsecond inference latency in production Kubernetes clusters.
+
+### 4. Real-Time SOC Dashboard & Data Lake
+A stunning, web-based React dashboard featuring a highly professional SaaS aesthetic for the Security Operations Center.
+* **Live Feed:** Interfaces via WebSockets to stream a live ML Detection Feed.
+* **Analytics:** Visualizes dynamic performance metrics, network health, and regional latency distributions.
+* **Command Interface:** Features a functional command terminal for issuing remote hardware bans (`HWID`) in real-time.
+* **Storage:** Telemetry is asynchronously archived in Apache Kafka and a ClickHouse columnar database for querying billions of coordinate events in milliseconds.
+
+---
+
+## 📐 System Design & Topology
 
 ```mermaid
 graph TD
-    Client[Unreal/Unity Client] -->|Signed UDP| Edge[Go Edge Ingest]
-    Edge -->|Validates & Interpolates| Kafka[Apache Kafka Cluster]
-    Kafka -->|Streams 60-Frame Batches| ML[PyTorch LSTM Autoencoder]
-    ML -->|Zero-Day Detection Alerts| AlertTopic[Kafka Alerts]
-    Kafka -->|Raw Archive| CH[(ClickHouse Data Lake)]
-    AlertTopic -->|Consumes| API[Node.js WebSocket API]
-    API -->|Live Push| React[React SOC Dashboard]
-    
-    Prometheus -->|Scrapes Metrics| Edge
-    Prometheus -->|Scrapes Metrics| ML
-    Grafana -->|Visualizes| Prometheus
+    %% Define Styles
+    classDef client fill:#2d3748,stroke:#4a5568,color:#fff
+    classDef ingest fill:#2b6cb0,stroke:#2c5282,color:#fff
+    classDef ml fill:#c53030,stroke:#9b2c2c,color:#fff
+    classDef data fill:#276749,stroke:#22543d,color:#fff
+    classDef ui fill:#805ad5,stroke:#553c9a,color:#fff
+
+    %% Nodes
+    Client[Unreal/Unity Client<br/>C++ SDK]:::client
+    Edge[Go Edge Ingestion Node<br/>UDP / Protobuf]:::ingest
+    Kafka[Apache Kafka Cluster<br/>High-Throughput Bus]:::data
+    ML[PyTorch LSTM Autoencoder<br/>ONNX Inference]:::ml
+    CH[(ClickHouse Data Lake<br/>Cold Storage)]:::data
+    API[Node.js WebSocket API<br/>Event Broadcaster]:::ingest
+    React[React SOC Dashboard<br/>Live Monitoring]:::ui
+
+    %% Edges
+    Client -- "HMAC-Signed Telemetry" --> Edge
+    Edge -- "Validates & Batches" --> Kafka
+    Kafka -- "Streams 60-Frame Windows" --> ML
+    ML -- "Zero-Day Anomaly Scores" --> Kafka
+    Kafka -- "Raw Archive" --> CH
+    Kafka -- "Live Alerts" --> API
+    API -- "WSS Push" --> React
 ```
 
-## 🧠 Unsupervised LSTM Training & Heuristics
+---
 
-The core detection engine is an **Unsupervised PyTorch LSTM Autoencoder** designed to identify mathematical impossibilities in player physics without relying on known cheat signatures.
+## 🛡️ Live Interactive Demo
 
-1. **Training Data:** The model is trained exclusively on synthetic human telemetry (`df[df['label'] == 0]`). It learns the natural bounds of Unreal Engine physics (gravity curves, friction, max acceleration).
-2. **Reconstruction MSE:** Because it only knows what "normal" looks like, it attempts to reconstruct sliding 60-frame windows. Legitimate movement reconstructs with an MSE of `~10.0`.
-3. **Zero-Day Detection:** When an unknown speedhack, teleport, or violent aim-snap is passed through the network, the LSTM fails to reconstruct the impossible physics curve, causing the MSE to skyrocket to `> 150,000`, immediately triggering a ban threshold.
-4. **ONNX Graph Compilation:** The trained PyTorch weights are dynamically traced and exported to a highly optimized `behavior_autoencoder_v1.onnx` file (IR Version 10) for microsecond inference latency in production clusters.
+We have deployed the React SOC Dashboard to GitHub Pages so you can interact with the Security Operations Center firsthand. 
 
-## 🛡️ Security Posture & Defenses
+**🚀 [Launch the SentinelX Dashboard Demo](https://Vishwajeet2005.github.io/SentinelX/)**
 
-SentinX implements multiple layers of defense against network manipulation and protocol attacks:
-1. **Time Dilation Exploit Defense:** The Go Edge server enforces server-authoritative frame deltas, preventing attackers from masking speedhacks by spoofing their timestamp payload.
-2. **Cheat Laundering Defense:** The PyTorch ML engine actively tracks artificially interpolated frames (used to repair packet loss). If a client uses a Lag-Switch to hide a violent aimbot snap, SentinX dynamically multiplies their MSE Reconstruction Error, triggering an immediate ban.
-3. **Replay Cache Protection:** All incoming packets are hashed via HMAC signatures. Duplicate payloads within the valid sequence variance window are instantly dropped to prevent rubber-banding and state manipulation.
+*Note: The live demo runs in an automated "Simulation Mode", generating realistic anomaly payloads and streaming fake telemetry to demonstrate the dynamic UI graphs and real-time alert systems.*
 
-## 💻 Tech Stack
-* **Core SDK:** `C / C++` (C-ABI Compatible)
-* **Ingest Edge:** `Golang 1.23`
-* **Message Broker:** `Apache Zookeeper` / `Apache Kafka`
-* **Machine Learning:** `Python` / `PyTorch` / `scikit-learn`
-* **Data Lake:** `ClickHouse`
-* **Observability:** `Prometheus` / `Grafana`
-* **SOC Dashboard:** `Node.js` / `React` / `Vite` / `WebSockets`
-* **Infrastructure:** `Docker Compose` / `Kubernetes`
+---
 
-## ⚙️ Deployment
+## ⚙️ Local Deployment
 
-### 1. Local Development Stack
-Deploy the minimal stack for testing the SOC Dashboard and SDK integration:
-```bash
-docker-compose up -d --build
-```
-* Dashboard UI: `http://localhost:3000`
+### Requirements
+* Docker & Docker Compose
+* Node.js v18+ (For UI Development)
 
-### 2. Full Enterprise Stack
+### 1. Bootstrapping the Enterprise Stack
 Deploy the complete production stack including Prometheus, Grafana, ClickHouse, and the PyTorch ML Inference Engine:
 ```bash
+# Clone the repository
+git clone https://github.com/Vishwajeet2005/SentinelX.git
+cd SentinelX
+
+# Spin up the Enterprise Cluster
 docker compose -f docker-compose.enterprise.yml up -d --build
 ```
-* Grafana Metrics: `http://localhost:3001` (admin/admin)
-* Prometheus: `http://localhost:9090`
+* **SOC Dashboard:** `http://localhost:3000`
+* **Grafana Metrics:** `http://localhost:3001` (admin/admin)
+* **Prometheus:** `http://localhost:9090`
 
-### 3. Kubernetes (Production)
-Apply the K8s manifests to deploy SentinX to a managed Kubernetes cluster with auto-scaling enabled:
+### 2. Kubernetes (K8s) Production Deployment
+For EKS/GKE deployments, apply the included K8s manifests to spin up the cluster with Horizontal Pod Autoscaling (HPA) enabled:
 ```bash
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/secrets.yaml
 kubectl apply -f k8s/
 ```
+
+---
+
+## 🧠 Why Unsupervised Learning?
+
+Traditional Anti-Cheats rely on **Signature Scanning** (scanning memory for known cheat engine hashes) or **Kernel-Level drivers**. While SentinX does include Ring-0 protections, its primary detection vector is mathematical.
+
+By utilizing an **Unsupervised Autoencoder**, SentinX does not need to know what a cheat looks like. It is trained purely on the latent distribution of *legitimate human gameplay*. When an attacker bypasses the Kernel protections and injects a custom, zero-day Aimbot, the resulting unnatural mouse-movement curve is passed through the neural network. Because the network has never seen this unnatural curve, it fails to compress and reconstruct the data, resulting in a massive spike in the `Reconstruction Error (MSE)`. This mathematically proves the presence of a cheat without ever needing to read the client's memory.
+
+---
+<div align="center">
+  <p>Built with ⚡ for high-performance multiplayer security.</p>
+</div>
