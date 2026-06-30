@@ -4,6 +4,6 @@ WORKDIR /app
 
 COPY scripts/mock_client.py .
 
-RUN pip install cryptography
+RUN pip install cryptography redis
 
 CMD ["python", "mock_client.py"]

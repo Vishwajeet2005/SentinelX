@@ -6,3 +6,4 @@ clickhouse-driver==0.2.7
 torch
 onnxscript
 prometheus_client
+redis
