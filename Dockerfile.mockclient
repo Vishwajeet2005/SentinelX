@@ -4,4 +4,6 @@ WORKDIR /app
 
 COPY mock_client.py .
 
+RUN pip install cryptography
+
 CMD ["python", "mock_client.py"]
