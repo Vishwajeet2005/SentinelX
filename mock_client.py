@@ -5,6 +5,7 @@ import math
 import hashlib
 import hmac
 import os
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 # To load secrets if running locally alongside the backend
 # from dotenv import load_dotenv
@@ -13,9 +14,11 @@ import os
 UDP_IP = os.environ.get("EDGE_HOST", "127.0.0.1")
 UDP_PORT = int(os.environ.get("EDGE_PORT", 8080))
 SECRET_KEY = os.environ.get("HMAC_SECRET", "REPLACE_WITH_SECURE_32_BYTE_KEY").encode('utf-8')
+AES_KEY = hashlib.sha256(SECRET_KEY).digest() # Ensure exactly 32 bytes for AES-256
+aesgcm = AESGCM(AES_KEY)
 
 print(f"Starting Unreal Engine Synthetic Data Generator...")
-print(f"Targeting UDP {UDP_IP}:{UDP_PORT} | HMAC Enabled")
+print(f"Targeting UDP {UDP_IP}:{UDP_PORT} | AES-256-GCM + HMAC-SHA256 Enabled")
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -115,15 +118,20 @@ while True:
     
     # Pack header (excluding the 32-byte HMAC prefix)
     header_no_hmac = struct.pack('<QQQII', client_id, sequence_id, now_ms, nonce, frame_count)
-    payload_to_hash = header_no_hmac + frames_bytes
+    plaintext_payload = header_no_hmac + frames_bytes
     
-    # Sign payload to pass edge security validation
+    # ENCRYPT-THEN-MAC PATTERN (AES-256-GCM)
+    iv = os.urandom(12)
+    ciphertext = aesgcm.encrypt(iv, plaintext_payload, None)
+    
+    # Sign encrypted payload to pass edge security validation
+    payload_to_hash = iv + ciphertext
     signature = hmac.new(SECRET_KEY, payload_to_hash, hashlib.sha256).digest()
     
-    # Final Payload Assembly
+    # Final Payload Assembly: [32-byte HMAC] + [12-byte IV] + [Ciphertext]
     final_payload = signature + payload_to_hash
     
-    print(f"[Synthetic UE Data] Pushed Packet Seq {sequence_id} | Pos: ({int(pos_x)}, {int(pos_y)}, {int(pos_z)})")
+    print(f"[Synthetic UE Data] Encrypted & Pushed Packet Seq {sequence_id} | Pos: ({int(pos_x)}, {int(pos_y)}, {int(pos_z)})")
     sock.sendto(final_payload, (UDP_IP, UDP_PORT))
     
     sequence_id += 1
