@@ -3,10 +3,12 @@ import logging
 import time
 import os
 import math
+import random
 import numpy as np
 import torch
 import torch.nn as nn
 import joblib
+import redis
 from kafka import KafkaConsumer, KafkaProducer
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
 
@@ -29,6 +31,7 @@ CURRENT_MSE = Gauge('sentinx_ml_latest_mse', 'The MSE Reconstruction Error of th
 # CONFIG
 # ──────────────────────────────────────────────
 KAFKA_BROKER = os.environ.get('KAFKA_BROKER', 'localhost:9092')
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
 INPUT_TOPIC = 'sentinx_telemetry'
 ALERTS_TOPIC = 'sentinx_alerts'
 
@@ -37,7 +40,6 @@ SCALER_PATH = 'models/scaler.pkl'
 
 FEATURES = 6
 SEQUENCE_LENGTH = 60
-HONEYPOT_POS = (5000.0, 5000.0, 100.0)
 
 # ──────────────────────────────────────────────
 # MODEL DEFINITION (Must match train_model.py)
@@ -67,6 +69,15 @@ def main():
     # Start Prometheus metrics server on port 8000
     start_http_server(8000)
     logger.info("Prometheus metrics server started on port 8000")
+    
+    # Connect to Redis
+    rdb = None
+    try:
+        rdb = redis.from_url(REDIS_URL)
+        rdb.ping()
+        logger.info(f"Connected to Redis for Dynamic Honeypots at {REDIS_URL}")
+    except Exception as e:
+        logger.warning(f"Redis not available ({e}). ESP Traps will fallback to default.")
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -108,7 +119,7 @@ def main():
                 INPUT_TOPIC,
                 bootstrap_servers=[KAFKA_BROKER],
                 auto_offset_reset='latest',
-                group_id='sentinx-autoencoder-group-v1',
+                group_id='sentinx-autoencoder-group-v2',
                 value_deserializer=lambda x: x.decode('utf-8')
             )
             producer = KafkaProducer(
@@ -128,7 +139,32 @@ def main():
 
     logger.info(f"Listening for raw telemetry on topic '{INPUT_TOPIC}'...")
 
+    # Dynamic Honeypot Initialization
+    current_honeypot = (5000.0, 5000.0, 100.0)
+    last_honeypot_update = 0
+
     for message in consumer:
+        # Randomize Honeypot every 30 seconds
+        now = time.time()
+        if now - last_honeypot_update > 30:
+            current_honeypot = (
+                random.uniform(-20000.0, 20000.0),
+                random.uniform(-20000.0, 20000.0),
+                random.uniform(50.0, 1000.0)
+            )
+            if rdb:
+                try:
+                    rdb.set("honeypot:current", json.dumps({
+                        "x": current_honeypot[0],
+                        "y": current_honeypot[1],
+                        "z": current_honeypot[2]
+                    }))
+                    logger.info(f"Deployed new Dynamic Honeypot Trap at {current_honeypot}")
+                except Exception as e:
+                    logger.warning(f"Failed to push Honeypot to Redis: {e}")
+            last_honeypot_update = now
+
+
         try:
             payload = json.loads(message.value)
         except json.JSONDecodeError as e:
@@ -158,27 +194,27 @@ def main():
             
             # ESP Honeypot Check (Deterministic)
             if not esp_detected:
-                dx = HONEYPOT_POS[0] - f['PosX']
-                dy = HONEYPOT_POS[1] - f['PosY']
-                dz = HONEYPOT_POS[2] - f['PosZ']
+                dx = current_honeypot[0] - f['PosX']
+                dy = current_honeypot[1] - f['PosY']
+                dz = current_honeypot[2] - f['PosZ']
                 dist_xy = math.sqrt(dx*dx + dy*dy)
                 
                 target_yaw = math.degrees(math.atan2(dy, dx))
                 target_pitch = math.degrees(math.atan2(dz, dist_xy))
                 
-                # If they snap precisely to the invisible entity within 0.5 degrees
+                # If they snap precisely to the dynamic invisible entity within 0.5 degrees
                 if abs(f['Yaw'] - target_yaw) < 0.5 and abs(f['Pitch'] - target_pitch) < 0.5:
                     esp_detected = True
         
         if esp_detected:
             ALERTS_FIRED.inc()
-            logger.error(f"[ALERT] Client {client_id} FLAG! WALLHACK/ESP Detected! Snapped to Honeypot.")
+            logger.error(f"[ALERT] Client {client_id} FLAG! WALLHACK/ESP Detected! Snapped to Dynamic Honeypot {current_honeypot}.")
             alert = {
                 'client_id': client_id,
                 'anomaly_score': 1.0,
                 'timestamp_ms': payload.get('timestamp_ms'),
                 'action': 'WALLHACK_DETECTED',
-                'model': 'Deterministic_Honeypot_v1',
+                'model': 'Dynamic_Honeypot_v2',
                 'alert_timestamp': int(time.time() * 1000),
                 'evidence': feature_matrix
             }
@@ -226,13 +262,11 @@ def main():
             mse_error *= penalty
             logger.info(f"Applied Interpolation Penalty {penalty:.2f}x to Client {client_id}")
 
-        # Map MSE to a generic anomaly score 0.0 -> 1.0 for the dashboard UI
-        # Typical MSE for normal data is usually < 0.1. We cap it at 2.0.
         anomaly_score = min(mse_error / 2.0, 1.0)
         
         logger.info(f"Client {client_id} | Frames: {seq_len} | Interp: {interpolated_count} | MSE: {mse_error:.4f} | Scaled Anomaly: {anomaly_score:.4f}")
 
-        # Alert Threshold (MSE > 0.4 usually means a huge deviation)
+        # Alert Threshold
         if mse_error >= 0.40 or interpolated_count > 5:
             ALERTS_FIRED.inc()
             
