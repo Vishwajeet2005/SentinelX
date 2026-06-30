@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -9,17 +10,19 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/go-redis/redis/v8"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
 )
 
 const (
@@ -27,18 +30,27 @@ const (
 	WorkerCount   = 100
 )
 
-var secretKey []byte
+var (
+	rdb *redis.Client
+	ctx = context.Background()
+)
 
 func init() {
-	key := os.Getenv("HMAC_SECRET")
-	if key == "" {
-		log.Fatal("FATAL: HMAC_SECRET environment variable is not set. Refusing to start with an insecure configuration.")
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "sentinx-redis:6379" // Default docker-compose name
 	}
-	if len(key) < 32 {
-		log.Fatal("FATAL: HMAC_SECRET must be at least 32 characters long for cryptographic security.")
+	rdb = redis.NewClient(&redis.Options{
+		Addr: redisURL,
+	})
+
+	// Test Redis connection
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Printf("WARNING: Redis not reachable on %s: %v. Security checks will fail.", redisURL, err)
+	} else {
+		log.Printf("Connected to Redis for Dynamic Session Keys at %s", redisURL)
 	}
-	secretKey = []byte(key)
-	
+
 	prometheus.MustRegister(packetsReceived)
 	prometheus.MustRegister(framesProcessed)
 	prometheus.MustRegister(droppedPayloads)
@@ -125,12 +137,13 @@ func getClientState(clientID uint64) *ClientState {
 
 type ReplayCache struct {
 	sync.RWMutex
-	cache map[uint64]time.Time
+	cache map[string]time.Time
 }
-var replayCache = ReplayCache{cache: make(map[uint64]time.Time)}
+
+var replayCache = ReplayCache{cache: make(map[string]time.Time)}
 
 func main() {
-	log.Println("Starting SentinX Edge Ingestion Node (with Jitter Buffer & Interpolation)...")
+	log.Println("Starting SentinX Edge Ingestion Node (with Jitter Buffer & Dynamic Redis Auth)...")
 
 	// Start Prometheus Metrics Server
 	go func() {
@@ -146,7 +159,9 @@ func main() {
 			replayCache.Lock()
 			now := time.Now()
 			for k, v := range replayCache.cache {
-				if now.Sub(v) > 5*time.Minute { delete(replayCache.cache, k) }
+				if now.Sub(v) > 5*time.Minute {
+					delete(replayCache.cache, k)
+				}
 			}
 			replayCache.Unlock()
 		}
@@ -186,9 +201,13 @@ func main() {
 	}
 
 	addr, err := net.ResolveUDPAddr("udp", ":8080")
-	if err != nil { log.Fatalf("Address error: %v", err) }
+	if err != nil {
+		log.Fatalf("Address error: %v", err)
+	}
 	conn, err := net.ListenUDP("udp", addr)
-	if err != nil { log.Fatalf("Listen error: %v", err) }
+	if err != nil {
+		log.Fatalf("Listen error: %v", err)
+	}
 	defer conn.Close()
 
 	payloadChan := make(chan []byte, 10000)
@@ -201,12 +220,14 @@ func main() {
 	buf := make([]byte, 65536)
 	for {
 		n, _, err := conn.ReadFromUDP(buf)
-		if err != nil { continue }
-		
+		if err != nil {
+			continue
+		}
+
 		packetsReceived.Inc()
 		payload := make([]byte, n)
 		copy(payload, buf[:n])
-		
+
 		select {
 		case payloadChan <- payload:
 		default:
@@ -225,21 +246,39 @@ func worker(payloadChan <-chan []byte, producer sarama.SyncProducer) {
 }
 
 func processPayload(payload []byte, producer sarama.SyncProducer) error {
-	// 32 byte HMAC + 12 byte IV + at least 32 byte header + 16 byte GCM tag
-	if len(payload) < 92 {
+	// New Format: 8-byte ClientID + 32 byte HMAC + 12 byte IV + at least 32 byte header + 16 byte GCM tag
+	if len(payload) < 100 {
 		return errors.New("payload too small")
 	}
 
-	// 1. Verify HMAC (Outer Signature)
+	// 1. Extract Plaintext ClientID
+	clientID := binary.LittleEndian.Uint64(payload[:8])
+
+	// 2. Fetch Dynamic Session Key from Redis
+	sessionKeyStr, err := rdb.Get(ctx, fmt.Sprintf("session:%d", clientID)).Result()
+	if err == redis.Nil {
+		return errors.New("client session not found (invalid or expired key)")
+	} else if err != nil {
+		return fmt.Errorf("redis error: %v", err)
+	}
+
+	if len(sessionKeyStr) < 32 {
+		return errors.New("session key from redis is too short")
+	}
+	secretKey := []byte(sessionKeyStr)
+
+	// 3. Verify HMAC (Outer Signature)
+	// The signature (payload[8:40]) covers the ClientID + IV + Ciphertext
 	mac := hmac.New(sha256.New, secretKey)
-	mac.Write(payload[32:]) // Hash the IV + Ciphertext
+	mac.Write(payload[:8])   // ClientID
+	mac.Write(payload[40:])  // IV + Ciphertext
 	expectedMAC := mac.Sum(nil)
-	if !hmac.Equal(payload[:32], expectedMAC) {
+	if !hmac.Equal(payload[8:40], expectedMAC) {
 		return errors.New("HMAC signature mismatch (tampered payload)")
 	}
 
-	// 2. Replay Protection: Drop packets with already processed HMAC signatures
-	sigHash := binary.LittleEndian.Uint64(payload[:8])
+	// 4. Strong Replay Protection: Hash the entire 32-byte HMAC string
+	sigHash := string(payload[8:40])
 	replayCache.RLock()
 	_, exists := replayCache.cache[sigHash]
 	replayCache.RUnlock()
@@ -251,7 +290,7 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 	replayCache.cache[sigHash] = time.Now()
 	replayCache.Unlock()
 
-	// 3. Decrypt AES-256-GCM
+	// 5. Decrypt AES-256-GCM
 	aesKey := sha256.Sum256(secretKey) // Ensure exactly 32 bytes
 	block, err := aes.NewCipher(aesKey[:])
 	if err != nil {
@@ -262,18 +301,22 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 		return err
 	}
 
-	iv := payload[32:44]
-	ciphertext := payload[44:]
+	iv := payload[40:52]
+	ciphertext := payload[52:]
 	plaintext, err := gcm.Open(nil, iv, ciphertext, nil)
 	if err != nil {
 		return errors.New("aes-gcm decryption failed")
 	}
 
-	// 4. Parse Decrypted Header
+	// 6. Parse Decrypted Header
 	var header PayloadHeader
 	buf := bytes.NewReader(plaintext)
 	if err := binary.Read(buf, binary.LittleEndian, &header); err != nil {
 		return err
+	}
+
+	if header.ClientID != clientID {
+		return errors.New("client id mismatch between plaintext prefix and encrypted payload")
 	}
 
 	now := uint64(time.Now().UnixNano() / int64(time.Millisecond))
@@ -306,7 +349,7 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 	if header.SequenceID <= cState.lastSeqID && cState.lastSeqID != 0 {
 		return errors.New("duplicate or late out-of-order packet dropped")
 	}
-    
+
 	// Internal Packet Jitter sort
 	sort.Slice(frames, func(i, j int) bool {
 		return frames[i].TimestampMS < frames[j].TimestampMS
@@ -315,14 +358,14 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 	var processedFrames []JSONFrame
 
 	// Forward Linear Prediction Interpolation for dropped UDP packets
-	if cState.lastSeqID != 0 && header.SequenceID > cState.lastSeqID + 1 {
+	if cState.lastSeqID != 0 && header.SequenceID > cState.lastSeqID+1 {
 		if cState.lastFrame != nil && len(frames) > 0 {
 			start := cState.lastFrame
 			end := frames[0]
-            
+
 			// Half-step interpolation to repair ML tensor continuity
 			ratio := float32(0.5)
-			
+
 			// Prevent Timestamp Underflow
 			var newTime uint64
 			if end.TimestampMS >= start.TimestampMS {
@@ -333,11 +376,11 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 			}
 
 			synthetic := JSONFrame{
-				PosX:           start.PosX + (end.PosX - start.PosX)*ratio,
-				PosY:           start.PosY + (end.PosY - start.PosY)*ratio,
-				PosZ:           start.PosZ + (end.PosZ - start.PosZ)*ratio,
-				Pitch:          start.Pitch + (end.Pitch - start.Pitch)*ratio,
-				Yaw:            start.Yaw + (end.Yaw - start.Yaw)*ratio,
+				PosX:           start.PosX + (end.PosX-start.PosX)*ratio,
+				PosY:           start.PosY + (end.PosY-start.PosY)*ratio,
+				PosZ:           start.PosZ + (end.PosZ-start.PosZ)*ratio,
+				Pitch:          start.Pitch + (end.Pitch-start.Pitch)*ratio,
+				Yaw:            start.Yaw + (end.Yaw-start.Yaw)*ratio,
 				FrameDeltaMS:   16.666, // SERVER AUTHORITATIVE TIME OVERRIDE
 				TimestampMS:    newTime,
 				InputFlags:     start.InputFlags,
@@ -349,14 +392,18 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 
 	for _, f := range frames {
 		processedFrames = append(processedFrames, JSONFrame{
-			PosX: f.PosX, PosY: f.PosY, PosZ: f.PosZ,
-			Pitch: f.Pitch, Yaw: f.Yaw, 
-			FrameDeltaMS: 16.666, // SERVER AUTHORITATIVE TIME OVERRIDE
-			TimestampMS: f.TimestampMS, InputFlags: f.InputFlags,
+			PosX:           f.PosX,
+			PosY:           f.PosY,
+			PosZ:           f.PosZ,
+			Pitch:          f.Pitch,
+			Yaw:            f.Yaw,
+			FrameDeltaMS:   16.666, // SERVER AUTHORITATIVE TIME OVERRIDE
+			TimestampMS:    f.TimestampMS,
+			InputFlags:     f.InputFlags,
 			IsInterpolated: 0,
 		})
 	}
-	
+
 	framesProcessed.Add(float64(len(processedFrames)))
 
 	cState.lastSeqID = header.SequenceID
@@ -371,9 +418,11 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 		TimestampMS: header.TimestampMS,
 		Frames:      processedFrames,
 	}
-    
+
 	outBytes, err := json.Marshal(outPayload)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	if producer != nil {
 		msg := &sarama.ProducerMessage{
