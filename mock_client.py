@@ -29,6 +29,9 @@ pos_x, pos_y, pos_z = 0.0, 0.0, 100.0  # UE scales in cm (100cm = 1m)
 vel_x, vel_y, vel_z = 0.0, 0.0, 0.0
 pitch, yaw = 0.0, 0.0
 
+# Honeypot Location
+HONEYPOT_POS = (5000.0, 5000.0, 100.0)
+
 # UE Constants
 GRAVITY = -980.0         # UE default gravity (cm/s^2)
 MAX_WALK_SPEED = 5000.0  # SPEEDHACK ENGAGED (50m/s, matches training distribution)
@@ -102,9 +105,25 @@ while True:
             pos_x = random.uniform(-25000.0, 25000.0)
             pos_y = random.uniform(-25000.0, 25000.0)
             
-        # 4. Smooth Camera Interpolation
+        # 4. Smooth Camera Interpolation (Normal human behavior)
         pitch += (tg_pitch - pitch) * 10.0 * DELTA_S
         yaw += (tg_yaw - yaw) * 10.0 * DELTA_S
+        
+        # CHEAT: ESP WALLHACK SNAP
+        # 1% chance per frame to instantly snap to the invisible honeypot
+        if random.random() < 0.01:
+            dx = HONEYPOT_POS[0] - pos_x
+            dy = HONEYPOT_POS[1] - pos_y
+            dz = HONEYPOT_POS[2] - pos_z
+            dist_xy = math.sqrt(dx*dx + dy*dy)
+            
+            # Calculate exact Euler angles to target
+            target_yaw = math.degrees(math.atan2(dy, dx))
+            target_pitch = math.degrees(math.atan2(dz, dist_xy))
+            
+            # Instant snap (bypassing smooth interpolation)
+            yaw = target_yaw
+            pitch = target_pitch
         
         # Packing: 6 floats, 1 uint64, 2 uint32s (matches C++ #pragma pack alignment exactly)
         frame_data = struct.pack('<ffffffQII', 
