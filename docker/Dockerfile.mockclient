@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY mock_client.py .
+COPY scripts/mock_client.py .
 
 RUN pip install cryptography
 
