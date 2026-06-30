@@ -67,13 +67,13 @@ graph TD
     classDef ui fill:#805AD5,stroke:#553C9A,color:#fff
 
     %% Nodes
-    Client[Unreal/Unity Client<br/>C++ SDK | AES-256-GCM]:::client
-    Edge[Go Edge Ingestion<br/>High-Concurrency UDP]:::ingest
-    Kafka[Apache Kafka Cluster<br/>Event Sourcing Bus]:::data
-    ML[PyTorch LSTM Autoencoder<br/>Honeypot & Inference]:::ml
-    CH[(ClickHouse Data Lake<br/>Cold Storage Analytics)]:::data
-    API[Node.js WebSocket API<br/>Event Broadcaster]:::ingest
-    React[React SOC Dashboard<br/>Live Global Monitoring]:::ui
+    Client["Unreal/Unity Client<br/>C++ SDK | AES-256-GCM"]:::client
+    Edge["Go Edge Ingestion<br/>High-Concurrency UDP"]:::ingest
+    Kafka["Apache Kafka Cluster<br/>Event Sourcing Bus"]:::data
+    ML["PyTorch LSTM Autoencoder<br/>Honeypot & Inference"]:::ml
+    CH[("ClickHouse Data Lake<br/>Cold Storage Analytics")]:::data
+    API["Node.js WebSocket API<br/>Event Broadcaster"]:::ingest
+    React["React SOC Dashboard<br/>Live Global Monitoring"]:::ui
 
     %% Edges
     Client -- "Encrypted & MAC-Signed Telemetry" --> Edge
