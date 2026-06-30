@@ -2,6 +2,7 @@ import json
 import logging
 import time
 import os
+import math
 import numpy as np
 import torch
 import torch.nn as nn
@@ -36,6 +37,7 @@ SCALER_PATH = 'models/scaler.pkl'
 
 FEATURES = 6
 SEQUENCE_LENGTH = 60
+HONEYPOT_POS = (5000.0, 5000.0, 100.0)
 
 # ──────────────────────────────────────────────
 # MODEL DEFINITION (Must match train_model.py)
@@ -144,6 +146,8 @@ def main():
         
         feature_matrix = []
         interpolated_count = 0
+        esp_detected = False
+        
         for f in frames:
             if f.get('IsInterpolated', 0) == 1:
                 interpolated_count += 1
@@ -151,6 +155,35 @@ def main():
                 f['PosX'], f['PosY'], f['PosZ'], 
                 f['Pitch'], f['Yaw'], f['FrameDeltaMS']
             ])
+            
+            # ESP Honeypot Check (Deterministic)
+            if not esp_detected:
+                dx = HONEYPOT_POS[0] - f['PosX']
+                dy = HONEYPOT_POS[1] - f['PosY']
+                dz = HONEYPOT_POS[2] - f['PosZ']
+                dist_xy = math.sqrt(dx*dx + dy*dy)
+                
+                target_yaw = math.degrees(math.atan2(dy, dx))
+                target_pitch = math.degrees(math.atan2(dz, dist_xy))
+                
+                # If they snap precisely to the invisible entity within 0.5 degrees
+                if abs(f['Yaw'] - target_yaw) < 0.5 and abs(f['Pitch'] - target_pitch) < 0.5:
+                    esp_detected = True
+        
+        if esp_detected:
+            ALERTS_FIRED.inc()
+            logger.error(f"[ALERT] Client {client_id} FLAG! WALLHACK/ESP Detected! Snapped to Honeypot.")
+            alert = {
+                'client_id': client_id,
+                'anomaly_score': 1.0,
+                'timestamp_ms': payload.get('timestamp_ms'),
+                'action': 'WALLHACK_DETECTED',
+                'model': 'Deterministic_Honeypot_v1',
+                'alert_timestamp': int(time.time() * 1000),
+                'evidence': feature_matrix
+            }
+            producer.send(ALERTS_TOPIC, value=alert)
+            continue # Bypass PyTorch ML Inference completely!
         
         if seq_len < SEQUENCE_LENGTH:
             padding = [[0.0] * FEATURES for _ in range(SEQUENCE_LENGTH - seq_len)]
