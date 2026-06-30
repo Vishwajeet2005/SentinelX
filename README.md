@@ -10,7 +10,7 @@
 
   <p>
     <a href="#overview"><img src="https://img.shields.io/badge/Status-Enterprise_Production-success?style=for-the-badge" alt="Status"></a>
-    <a href="#tech-stack"><img src="https://img.shields.io/badge/Stack-C%2B%2B%20%7C%20Go%20%7C%20PyTorch%20%7C%20Kafka%20%7C%20React-informational?style=for-the-badge" alt="Stack"></a>
+    <a href="#tech-stack"><img src="https://img.shields.io/badge/Stack-C%2B%2B%20%7C%20Go%20%7C%20PyTorch%20%7C%20Kafka%20%7C%20K8s-informational?style=for-the-badge" alt="Stack"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License"></a>
   </p>
 </div>
@@ -32,18 +32,18 @@ By leveraging an Unsupervised LSTM Autoencoder, SentinX completely abandons trad
 ### 1. Zero-Allocation C++ Engine SDK
 A lockless, ring-buffer driven C++ SDK with an `extern "C"` ABI. Designed to be hooked directly into the game engine's `Tick()` loop. 
 * **Performance:** Introduces `< 0.1ms` overhead per frame. 
-* **Security:** Cryptographically signs telemetry payloads via HMAC-SHA256 to prevent memory tampering and packet spoofing.
+* **Encryption:** Secures telemetry via **AES-256-GCM** (Encrypt-then-MAC configuration) with a 96-bit randomized IV per packet, preventing man-in-the-middle memory tampering and payload spoofing.
 
 ### 2. High-Throughput Go Edge Ingestion
 A highly concurrent UDP edge server written in Go `1.23`. Engineered to ingest millions of telemetry packets simultaneously.
 * **Defenses:** Native Replay Attack protection, Server-Authoritative Time Dilation enforcement, and dynamic packet-loss interpolation.
 * **Observability:** Fully instrumented with Prometheus endpoints for sub-millisecond latency tracking.
 
-### 3. Unsupervised PyTorch ML Pipeline
-The core detection engine is an **LSTM Autoencoder** trained entirely on legitimate human gameplay.
-* **Zero-Day Detection:** Because the model only knows what "normal" physics look like, any unknown aim-snap or speedhack fails to reconstruct, causing the Mean Squared Error (MSE) to skyrocket and trigger an immediate ban.
-* **Cheat Laundering Defense:** Actively penalizes artificial frame interpolation, instantly detecting attackers attempting to hide aimbots via Lag-Switches.
-* **Performance:** ONNX Graph compilation (IR Version 10) allows for microsecond inference latency in production Kubernetes clusters.
+### 3. PyTorch ML Pipeline & Deterministic Traps
+The core detection engine features a hybrid architecture: an **LSTM Autoencoder** for probabilistic anomalies, paired with deterministic mathematical traps.
+* **Deterministic Honeypots:** We spawn invisible entities within the server bounds. If an attacker's ESP (Wallhack) snaps their Euler Angles to the exact coordinates of the invisible honeypot, the PyTorch inference is bypassed and a 100% mathematically proven `WALLHACK_DETECTED` ban is issued instantly.
+* **Zero-Day ML Detection:** For everything else, the Autoencoder (trained purely on legitimate human physics) reconstructs the data. Unknown Aimbots or Speedhacks cause the Mean Squared Error (MSE) to skyrocket, triggering an anomaly ban.
+* **Performance:** ONNX Graph compilation allows for microsecond inference latency in production Kubernetes clusters.
 
 ### 4. Real-Time SOC Dashboard & Data Lake
 A stunning, web-based React dashboard featuring a highly professional SaaS aesthetic for the Security Operations Center.
@@ -117,12 +117,11 @@ docker compose -f docker-compose.enterprise.yml up -d --build
 * **Prometheus:** `http://localhost:9090`
 
 ### 2. Kubernetes (K8s) Production Deployment
-For EKS/GKE deployments, apply the included K8s manifests to spin up the cluster with Horizontal Pod Autoscaling (HPA) enabled:
+To scale horizontally from 1,000 to 1,000,000 players, deploy the included K8s manifests. This architecture utilizes **Horizontal Pod Autoscaling (HPA)** for the Go Edge Servers (scaling on UDP network CPU load) and PyTorch Inference Nodes (scaling on Memory/OOM protection and CPU).
 ```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/secrets.yaml
-kubectl apply -f k8s/
+./k8s/deploy_local_cluster.sh
 ```
+This script provisions Minikube, metrics-servers for HPA RBAC, cryptographic HMAC secrets, and the stateless node autoscalers.
 
 ---
 
