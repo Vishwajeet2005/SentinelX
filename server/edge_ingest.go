@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/binary"
@@ -58,9 +60,8 @@ var (
 	})
 )
 
-// PayloadHeader perfectly packed at 64 bytes
+// PayloadHeader is exactly 32 bytes
 type PayloadHeader struct {
-	HMAC        [32]byte
 	ClientID    uint64
 	SequenceID  uint64
 	TimestampMS uint64
@@ -224,25 +225,21 @@ func worker(payloadChan <-chan []byte, producer sarama.SyncProducer) {
 }
 
 func processPayload(payload []byte, producer sarama.SyncProducer) error {
-	if len(payload) < 64 {
+	// 32 byte HMAC + 12 byte IV + at least 32 byte header + 16 byte GCM tag
+	if len(payload) < 92 {
 		return errors.New("payload too small")
 	}
 
-	var header PayloadHeader
-	buf := bytes.NewReader(payload)
-	if err := binary.Read(buf, binary.LittleEndian, &header); err != nil {
-		return err
-	}
-
+	// 1. Verify HMAC (Outer Signature)
 	mac := hmac.New(sha256.New, secretKey)
-	mac.Write(payload[32:]) 
+	mac.Write(payload[32:]) // Hash the IV + Ciphertext
 	expectedMAC := mac.Sum(nil)
-	if !hmac.Equal(header.HMAC[:], expectedMAC) {
+	if !hmac.Equal(payload[:32], expectedMAC) {
 		return errors.New("HMAC signature mismatch (tampered payload)")
 	}
 
-	// Replay Protection: Drop packets with already processed HMAC signatures
-	sigHash := binary.LittleEndian.Uint64(header.HMAC[:8])
+	// 2. Replay Protection: Drop packets with already processed HMAC signatures
+	sigHash := binary.LittleEndian.Uint64(payload[:8])
 	replayCache.RLock()
 	_, exists := replayCache.cache[sigHash]
 	replayCache.RUnlock()
@@ -253,6 +250,31 @@ func processPayload(payload []byte, producer sarama.SyncProducer) error {
 	replayCache.Lock()
 	replayCache.cache[sigHash] = time.Now()
 	replayCache.Unlock()
+
+	// 3. Decrypt AES-256-GCM
+	aesKey := sha256.Sum256(secretKey) // Ensure exactly 32 bytes
+	block, err := aes.NewCipher(aesKey[:])
+	if err != nil {
+		return err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return err
+	}
+
+	iv := payload[32:44]
+	ciphertext := payload[44:]
+	plaintext, err := gcm.Open(nil, iv, ciphertext, nil)
+	if err != nil {
+		return errors.New("aes-gcm decryption failed")
+	}
+
+	// 4. Parse Decrypted Header
+	var header PayloadHeader
+	buf := bytes.NewReader(plaintext)
+	if err := binary.Read(buf, binary.LittleEndian, &header); err != nil {
+		return err
+	}
 
 	now := uint64(time.Now().UnixNano() / int64(time.Millisecond))
 	var variance uint64
