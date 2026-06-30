@@ -3,7 +3,7 @@ FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
 WORKDIR /app
 
 # Install lightweight dependencies (skip torch because it's in the base image)
-RUN pip install --no-cache-dir kafka-python numpy joblib scikit-learn prometheus_client
+RUN pip install --no-cache-dir kafka-python numpy joblib scikit-learn prometheus_client redis
 
 COPY inference_engine.py .
 
