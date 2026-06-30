@@ -46,7 +46,7 @@ services:
     depends_on:
       - kafka
     environment:
-      - KAFKA_BROKER=kafka:29092
+      - KAFKA_BROKER=sentinx-kafka:29092
       - HMAC_SECRET=${HMAC_SECRET}
     networks:
       - sentinx-net
@@ -59,8 +59,8 @@ services:
       - kafka
       - clickhouse
     environment:
-      - KAFKA_BROKER=kafka:29092
-      - CLICKHOUSE_HOST=clickhouse
+      - KAFKA_BROKER=sentinx-kafka:29092
+      - CLICKHOUSE_HOST=sentinx-clickhouse
     networks:
       - sentinx-net
 
@@ -68,7 +68,7 @@ services:
     image: redis:alpine
     container_name: sentinx-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     networks:
       - sentinx-net
 
@@ -82,8 +82,8 @@ services:
     ports:
       - "4000:4000"
     environment:
-      - KAFKA_BROKER=kafka:29092
-      - REDIS_URL=redis://redis:6379
+      - KAFKA_BROKER=sentinx-kafka:29092
+      - REDIS_URL=redis://sentinx-redis:6379
       - HMAC_SECRET=${HMAC_SECRET}
       - PORT=4000
     networks:
@@ -94,7 +94,7 @@ services:
       context: ./dashboard
     container_name: sentinx-dashboard-ui
     ports:
-      - "3000:3000"
+      - "3002:3000"
     environment:
       - VITE_API_URL=http://localhost:4000
     networks:
@@ -132,11 +132,11 @@ services:
     depends_on:
       - kafka
     environment:
-      - KAFKA_BROKER=kafka:29092
+      - KAFKA_BROKER=sentinx-kafka:29092
     volumes:
       - ./models:/app/models
     ports:
-      - "8000:8000"
+      - "8001:8000"
     networks:
       - sentinx-net
 
