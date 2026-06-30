@@ -20,4 +20,4 @@ logs: ## Tail the logs of all running services
 	docker compose logs -f
 
 ui-dev: ## Run the React dashboard locally outside of Docker
-	cd dashboard && npm install && npm run dev
+	cd web/dashboard && npm install && npm run dev
