@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-alert.svg" width="100" alt="SentinX Logo" />
-  <h1>SentinX Enterprise Anti-Cheat Architecture</h1>
+  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-alert.svg" width="100" alt="SentinelX Logo" />
+  <h1>SentinelX Enterprise Anti-Cheat Architecture</h1>
 
   <p><strong>Cryptographically Secure Telemetry • High-Throughput Go Ingestion • Unsupervised PyTorch ML • Kubernetes Autoscaling</strong></p>
 
@@ -19,7 +19,7 @@
 
 ## 📖 Executive Summary
 
-**SentinX** is a military-grade, cloud-native Anti-Cheat infrastructure engineered for modern, high-concurrency multiplayer environments (Unreal Engine 5, Unity). Designed to protect AAA studios from advanced cheating syndicates, SentinX operates completely out-of-band, guaranteeing **zero performance degradation** on the authoritative game server.
+**SentinelX** is a military-grade, cloud-native Anti-Cheat infrastructure engineered for modern, high-concurrency multiplayer environments (Unreal Engine 5, Unity). Designed to protect AAA studios from advanced cheating syndicates, SentinX operates completely out-of-band, guaranteeing **zero performance degradation** on the authoritative game server.
 
 Traditional Anti-Cheats rely on fragile, reactive Signature Scanning (searching memory for known cheat hashes) or intrusive Kernel-Level Ring-0 drivers. SentinX pioneers a **Hybrid Zero-Trust Architecture**. It couples cryptographically secured telemetry pipelines with **Unsupervised Machine Learning** to mathematically detect impossible physics (Aimbots, Speedhacks) in real-time, regardless of the cheat software's signature.
 
@@ -89,7 +89,7 @@ graph TD
 
 ## 🚀 Production Deployment (Kubernetes)
 
-To prove SentinX's ability to scale horizontally from 1,000 to 1,000,000 concurrent players, the entire stack is orchestrated via Kubernetes (K8s) utilizing **Horizontal Pod Autoscaling (HPA)**.
+To prove SentinelX's ability to scale horizontally from 1,000 to 1,000,000 concurrent players, the entire stack is orchestrated via Kubernetes (K8s) utilizing **Horizontal Pod Autoscaling (HPA)**.
 
 *   **UDP Scalability:** The `edge-ingest` HPA actively monitors network CPU load, cloning Go servers dynamically to prevent dropped packets during massive traffic spikes.
 *   **OOM Defense:** The `ml-inference` PyTorch nodes scale proactively based on **Memory Utilization** alongside CPU, providing a mathematical defense against memory leaks caused by Kafka tensor backlogs.
