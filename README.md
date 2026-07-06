@@ -1,16 +1,19 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-alert.svg" width="100" alt="SentinelX Logo" />
+  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-check.svg" width="120" alt="SentinelX Logo" />
   <h1>SentinelX Enterprise Anti-Cheat Architecture</h1>
 
-  <p><strong>Cryptographically Secure Telemetry • High-Throughput Go Ingestion • Unsupervised PyTorch ML • Kubernetes Autoscaling</strong></p>
+  <p><strong>Military-Grade Telemetry • High-Throughput Go Ingestion • Unsupervised PyTorch ML • Kubernetes Autoscaling</strong></p>
 
   <p>
     <a href="https://Vishwajeet2005.github.io/SentinelX/"><b>View Live SOC Dashboard Demo</b></a>
   </p>
 
   <p>
-    <a href="#overview"><img src="https://img.shields.io/badge/Status-Enterprise_Production-success?style=for-the-badge" alt="Status"></a>
-    <a href="#tech-stack"><img src="https://img.shields.io/badge/Stack-C%2B%2B%20%7C%20Go%20%7C%20PyTorch%20%7C%20Kafka%20%7C%20K8s-informational?style=for-the-badge" alt="Stack"></a>
+    <a href="#overview"><img src="https://img.shields.io/badge/Status-Production_Ready-success?style=for-the-badge&logo=github" alt="Status"></a>
+    <a href="#tech-stack"><img src="https://img.shields.io/badge/C++-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white" alt="C++"></a>
+    <a href="#tech-stack"><img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go"></a>
+    <a href="#tech-stack"><img src="https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch"></a>
+    <a href="#tech-stack"><img src="https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License"></a>
   </p>
 </div>
@@ -29,22 +32,23 @@ This repository contains the complete microservice architecture, capable of hori
 
 ## 🏗️ Core Architecture & Deep Dive
 
-### 1. Zero-Trust C++ Engine SDK
+### 1. Zero-Trust C++ Engine SDK & Cryptography
 The client-side footprint of SentinX is a lockless, ring-buffer driven C++ SDK engineered to hook directly into the game engine's `Tick()` loop.
 * **Microsecond Overhead:** Heavily optimized C++ guarantees `< 0.1ms` overhead per frame, ensuring competitive frame rates remain untouched.
-* **AES-256-GCM Payload Encryption:** Telemetry is encrypted client-side using military-grade `AES-256-GCM` in an *Encrypt-then-MAC* configuration. Utilizing a 96-bit randomized Initialization Vector (IV) per packet entirely neutralizes Man-in-the-Middle (MitM) memory tampering, payload spoofing, and replay attacks.
+* **Dynamic Redis Session Keys:** SentinX abandons insecure global keys. Upon authentication, a temporary 32-byte Session Key is generated and securely distributed via Redis. The edge ingestion server dynamically fetches this key based on the packet's unencrypted `ClientID` prefix, neutralizing Man-in-the-Middle (MitM) memory tampering.
+* **AES-256-GCM Payload Encryption:** Telemetry is encrypted client-side using military-grade `AES-256-GCM` in an *Encrypt-then-MAC* configuration. Utilizing a 96-bit randomized Initialization Vector (IV) per packet entirely prevents payload spoofing and replay attacks.
 * **HMAC-SHA256 Signing:** Ensures mathematical proof of origin before the edge server allocates any resources to process the packet.
 
 ### 2. High-Throughput Go Edge Ingestion (The Frontline)
 The ingress layer is built in Go (`1.23`), leveraging its world-class concurrency model (`goroutines`) to handle massive UDP socket saturation.
 * **Concurrency Model:** A pool of 100+ worker routines continuously pull cryptographically verified packets from an in-memory 10,000-packet buffer, preventing UDP packet drops during traffic spikes.
-* **Replay Cache & Time Dilation Enforcement:** An LRU cache drops duplicate sequence IDs, while strict delta-time validation drops mathematically impossible physics before they reach the ML engine, preventing OOM attacks.
+* **Replay Cache & Time Dilation Enforcement:** A sophisticated hash-based cache strictly enforces cryptographic uniqueness, while strict delta-time validation drops mathematically impossible physics before they reach the ML engine, preventing OOM attacks.
 * **Observability:** Fully instrumented with Prometheus endpoints, exporting sub-millisecond network latency and drop-rates directly to Grafana.
 
-### 3. PyTorch ML Pipeline & Deterministic Honeypots
+### 3. PyTorch ML Pipeline & Dynamic Honeypots
 The core detection engine features a hybrid architecture combining probabilistic AI with deterministic mathematical traps.
 * **Unsupervised LSTM Autoencoders:** Trained exclusively on *legitimate* human gameplay, the neural network learns the latent mathematical constraints of human mechanics. When zero-day Aimbots or Speedhacks bypass kernel protections, their unnatural mouse-movement curves fail to reconstruct, causing the Mean Squared Error (MSE) to skyrocket and trigger an instant anomaly ban.
-* **Deterministic ESP Traps:** To combat Wallhacks, we deploy invisible "Honeypot" entities in the server bounds. Before PyTorch inference occurs, SentinX calculates the exact Euler Angles (Pitch/Yaw) required to aim at the invisible honeypot. If a cheater's ESP snaps to those exact coordinates, the ML inference is bypassed and a 100% false-positive-free `WALLHACK_DETECTED` ban is fired instantly.
+* **Dynamic ESP Traps:** To combat Wallhacks, we deploy invisible "Honeypot" entities. Rather than hardcoding coordinates (which cheat developers reverse-engineer), SentinX dynamically randomizes trap locations every 30 seconds via Redis. If a cheater's ESP snaps to those exact coordinates, the ML inference is bypassed and a 100% false-positive-free `WALLHACK_DETECTED` ban is fired instantly.
 * **ONNX Compilation:** The PyTorch models are compiled to ONNX Graph formats (IR Version 10) for maximum matrix-multiplication throughput on Kubernetes GPU nodes.
 
 ### 4. Real-Time SOC Dashboard & Data Lake
@@ -70,14 +74,18 @@ graph TD
     Client["Unreal/Unity Client<br/>C++ SDK | AES-256-GCM"]:::client
     Edge["Go Edge Ingestion<br/>High-Concurrency UDP"]:::ingest
     Kafka["Apache Kafka Cluster<br/>Event Sourcing Bus"]:::data
+    Redis[("Redis Memory Store<br/>Session Keys & Traps")]:::data
     ML["PyTorch LSTM Autoencoder<br/>Honeypot & Inference"]:::ml
     CH[("ClickHouse Data Lake<br/>Cold Storage Analytics")]:::data
     API["Node.js WebSocket API<br/>Event Broadcaster"]:::ingest
     React["React SOC Dashboard<br/>Live Global Monitoring"]:::ui
 
     %% Edges
-    Client -- "Encrypted & MAC-Signed Telemetry" --> Edge
-    Edge -- "Verifies, Decrypts & Batches" --> Kafka
+    Client -- "Encrypted Telemetry" --> Edge
+    Client -. "Fetches Dynamic Session Key" .-> Redis
+    ML -. "Pushes Dynamic Honeypots" .-> Redis
+    Edge -- "Verifies via Redis" --> Redis
+    Edge -- "Decrypted & Batched Tensors" --> Kafka
     Kafka -- "Streams 60-Frame Tensors" --> ML
     ML -- "Zero-Day Anomaly Scores" --> Kafka
     Kafka -- "Raw Archive" --> CH
@@ -87,15 +95,12 @@ graph TD
 
 ---
 
-## 🚀 Production Deployment (Kubernetes)
+## 🚀 Getting Started & Deployment
 
 To prove SentinelX's ability to scale horizontally from 1,000 to 1,000,000 concurrent players, the entire stack is orchestrated via Kubernetes (K8s) utilizing **Horizontal Pod Autoscaling (HPA)**.
 
-*   **UDP Scalability:** The `edge-ingest` HPA actively monitors network CPU load, cloning Go servers dynamically to prevent dropped packets during massive traffic spikes.
-*   **OOM Defense:** The `ml-inference` PyTorch nodes scale proactively based on **Memory Utilization** alongside CPU, providing a mathematical defense against memory leaks caused by Kafka tensor backlogs.
-
-### Deploying to a Local Cluster
-We have included a comprehensive DevOps shell script to automate the deployment to a local Minikube cluster:
+### Local Kubernetes Cluster (Minikube)
+We have included a comprehensive DevOps shell script to automate the deployment to a local Minikube cluster. This provisions the metrics server, auto-scaling RBAC policies, and all microservices.
 
 ```bash
 # Clone the repository
@@ -105,16 +110,18 @@ cd SentinelX
 # Provision the Kubernetes Stack
 ./k8s/deploy_local_cluster.sh
 ```
-*Note: This script automatically provisions Minikube, installs the Kubernetes Metrics Server (required for HPA RBAC policies), generates cryptographic HMAC secrets, and maps the Kafka/ZooKeeper dependencies in the correct order.*
 
 ### Docker Compose (Enterprise Testing)
-For rapid local testing without Kubernetes overhead, you can spin up the full telemetry pipeline via Docker Compose:
+For rapid local development without Kubernetes overhead, spin up the full Zero-Trust telemetry pipeline via Docker Compose:
+
 ```bash
+# Build and deploy the entire microservice stack
 docker compose -f docker-compose.enterprise.yml up -d --build
 ```
 * **SOC Dashboard:** `http://localhost:3000`
-* **Grafana Metrics:** `http://localhost:3001` (admin/admin)
+* **Grafana Metrics:** `http://localhost:3001` *(Credentials: admin / admin)*
 * **Prometheus:** `http://localhost:9090`
+* **API Backend:** `http://localhost:4000`
 
 ---
 
@@ -124,9 +131,10 @@ We have deployed the React SOC Dashboard to GitHub Pages so you can interact wit
 
 **[Launch the SentinelX Dashboard Demo](https://Vishwajeet2005.github.io/SentinelX/)**
 
-*Note: The live demo runs in an automated "Simulation Mode", generating realistic anomaly payloads and streaming fake telemetry to demonstrate the dynamic UI graphs and real-time alert systems.*
+*Note: The live demo runs in an automated "Simulation Mode", generating realistic anomaly payloads and streaming simulated telemetry to demonstrate the dynamic UI graphs and real-time alert systems.*
 
 ---
 <div align="center">
+  <br/>
   <p><i>Engineered for the future of competitive integrity.</i></p>
 </div>
