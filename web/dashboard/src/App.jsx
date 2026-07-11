@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { LineChart, Line, BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
-import { Target, Shield, Users, Map, Play, Square, ChevronRight, ChevronDown, Monitor, Cpu, Database, Server, Terminal } from 'lucide-react';
+import { Target, Shield, Users, Map, Play, Square, ChevronRight, ChevronDown, Monitor, Cpu, Database, Server, Terminal, Activity } from 'lucide-react';
 import axios from 'axios';
 
 function App() {
@@ -34,7 +34,7 @@ function App() {
   const [alertsMap, setAlertsMap] = useState({});
   const alerts = useMemo(() => Object.values(alertsMap).slice(0, 15), [alertsMap]);
   const [selectedAlert, setSelectedAlert] = useState(null);
-  const [simMode, setSimMode] = useState(true); // Default to true for impressive live demo
+  const [simMode, setSimMode] = useState(true);
   const [connected, setConnected] = useState(false);
   const [logs, setLogs] = useState([]);
   const [cmdInput, setCmdInput] = useState('');
@@ -212,98 +212,92 @@ function App() {
     <div className="dashboard-layout">
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
         <h1 className="dashboard-title">Monitoring & Performance</h1>
-        <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
-            <div style={{fontSize: '12px', fontWeight: 600, color: connected ? '#38a169' : '#e53e3e', display: 'flex', alignItems: 'center', gap: '6px'}}>
-                <div style={{width: '8px', height: '8px', borderRadius: '50%', background: connected ? '#38a169' : '#e53e3e'}}></div>
-                {connected ? 'LIVE NETWORK CONNECTED' : 'DISCONNECTED'}
+        <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
+            <div style={{fontSize: '12px', fontWeight: 600, color: connected ? 'var(--accent-green)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', letterSpacing: '0.05em'}}>
+                <Activity size={14} />
+                {connected ? 'WSS CONNECTED' : 'DISCONNECTED'}
             </div>
-            <button 
-                onClick={() => setSimMode(!simMode)}
-                style={{
-                    background: simMode ? '#e53e3e' : '#3182ce', color: '#fff', border: 'none', padding: '8px 16px', 
-                    borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-            >
-                {simMode ? <Square size={14}/> : <Play size={14}/>} {simMode ? 'Stop Simulation' : 'Simulate Engine Detections'}
+            <button className="btn-minimal" onClick={() => setSimMode(!simMode)} style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+                {simMode ? <Square size={12}/> : <Play size={12}/>} {simMode ? 'Stop Simulation' : 'Simulate Engine Detections'}
             </button>
         </div>
       </div>
 
-      <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px'}}>
+      <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px'}}>
         {/* Top left incidents */}
         <div className="card">
-            <div className="card-title">Anti-Cheat Incident Management (last 24 hours)</div>
+            <div className="card-title">Incident Velocity (Last 24h)</div>
             <div className="top-incidents">
                 <div className="incident-box">
                     <div className="header">Moderate</div>
-                    <div className="val-row"><span className="value">{metrics.incidentsMod}</span><span className="sub">&darr; 71%</span></div>
-                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="monotone" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
+                    <div className="val-row"><span className="value">{metrics.incidentsMod}</span><span className="sub down">&darr; 71%</span></div>
+                    <div style={{height: '32px', marginTop: '16px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="step" dataKey="val" stroke="var(--text-muted)" strokeWidth={1} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
                 </div>
                 <div className="incident-box">
                     <div className="header">High</div>
-                    <div className="val-row"><span className="value">{metrics.incidentsHigh}</span><span className="sub">&darr; 53%</span></div>
-                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="monotone" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
+                    <div className="val-row"><span className="value">{metrics.incidentsHigh}</span><span className="sub down">&darr; 53%</span></div>
+                    <div style={{height: '32px', marginTop: '16px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="step" dataKey="val" stroke="var(--text-muted)" strokeWidth={1} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
                 </div>
                 <div className="incident-box">
                     <div className="header">Critical</div>
-                    <div className="val-row"><span className="value">{metrics.incidentsCrit}</span><span className="sub" style={{color: '#38a169'}}>&darr; 1</span></div>
-                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="step" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
+                    <div className="val-row"><span className="value">{metrics.incidentsCrit}</span><span className="sub down">&darr; 1</span></div>
+                    <div style={{height: '32px', marginTop: '16px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="step" dataKey="val" stroke="var(--text-main)" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
                 </div>
                 <div className="incident-box">
                     <div className="header">Resolved</div>
-                    <div className="val-row"><span className="value">{metrics.incidentsRes}</span><span className="sub">&darr; 281</span></div>
-                    <div style={{height: '40px', marginTop: '10px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="monotone" dataKey="val" stroke="#2d3748" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
+                    <div className="val-row"><span className="value">{metrics.incidentsRes}</span><span className="sub up">&uarr; 281</span></div>
+                    <div style={{height: '32px', marginTop: '16px'}}><ResponsiveContainer width="100%" height="100%"><LineChart data={sparklineData}><Line type="step" dataKey="val" stroke="var(--text-muted)" strokeWidth={1} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>
                 </div>
             </div>
         </div>
 
         {/* Top Right Cmd Log */}
         <div className="card" style={{display: 'flex', flexDirection: 'column'}}>
-            <div className="card-title" style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Terminal size={14}/> SOC Command Interface</div>
-            <div ref={logsRef} style={{flex: 1, background: '#1a202c', color: '#a0aec0', fontFamily: 'monospace', fontSize: '11px', padding: '12px', borderRadius: '4px', overflowY: 'auto', maxHeight: '120px'}}>
+            <div className="card-title" style={{display: 'flex', alignItems: 'center', gap: '6px', borderBottom: 'none', marginBottom: '8px'}}><Terminal size={14}/> SOC Command Interface</div>
+            <div className="terminal-block" ref={logsRef} style={{flex: 1, maxHeight: '140px'}}>
                 {logs.map((l, i) => <div key={i}>{l}</div>)}
             </div>
-            <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', background: '#edf2f7', padding: '4px 12px', borderRadius: '4px'}}>
-                <span style={{color: '#4a5568', fontWeight: 700}}>&gt;</span>
+            <div className="terminal-input-wrapper">
+                <span style={{color: 'var(--text-muted)', fontWeight: 700}}>&gt;</span>
                 <input 
                     type="text" 
                     value={cmdInput} 
                     onChange={e => setCmdInput(e.target.value)} 
                     onKeyDown={handleCommand}
                     placeholder="Enter command (e.g. 'help')..."
-                    style={{background: 'transparent', border: 'none', outline: 'none', flex: 1, fontSize: '12px', color: '#2d3748', fontFamily: 'monospace'}}
                 />
             </div>
         </div>
       </div>
 
       <div className="chart-row">
-        {/* Live Detections Feed (Replaces static Banned Processes table) */}
+        {/* Live Detections Feed */}
         <div className="card" style={{gridColumn: 'span 2'}}>
-            <div className="card-title" style={{display: 'flex', justifyContent: 'space-between'}}>
+            <div className="card-title" style={{display: 'flex', justifyContent: 'space-between', borderBottom: 'none'}}>
                 <span>Live ML Detections Feed</span>
-                <span style={{color: '#e53e3e', fontSize: '11px'}}>{alerts.length} Active Alerts</span>
+                <span style={{color: 'var(--ue-alert)', fontSize: '11px', fontWeight: 600}}>{alerts.length} Active Alerts</span>
             </div>
             
-            <div style={{display: 'flex', gap: '16px'}}>
+            <div style={{display: 'flex', gap: '24px'}}>
                 {/* Table */}
                 <div style={{flex: 1, maxHeight: '250px', overflowY: 'auto'}}>
                     <table className="data-table">
-                        <thead style={{position: 'sticky', top: 0, background: '#fff'}}>
+                        <thead style={{position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 10}}>
                             <tr><th>Time</th><th>Player ID</th><th>Match ID</th><th>Violation</th><th>Action</th></tr>
                         </thead>
                         <tbody>
                             {alerts.length === 0 ? (
-                                <tr><td colSpan="5" style={{textAlign: 'center', padding: '20px', color: '#a0aec0'}}>No live detections currently active.</td></tr>
+                                <tr><td colSpan="5" style={{textAlign: 'center', padding: '40px', color: 'var(--text-muted)'}}>No active anomalies detected.</td></tr>
                             ) : (
                                 alerts.map(a => (
-                                    <tr key={a.id} style={{background: selectedAlert?.id === a.id ? '#edf2f7' : 'transparent', cursor: 'pointer'}} onClick={() => setSelectedAlert(a)}>
+                                    <tr key={a.id} className={selectedAlert?.id === a.id ? 'selected' : ''} style={{cursor: 'pointer'}} onClick={() => setSelectedAlert(a)}>
                                         <td>{a.time}</td>
-                                        <td style={{fontWeight: 600}}>{a.id}</td>
-                                        <td style={{color: '#718096'}}>{a.matchId}</td>
-                                        <td style={{color: '#e53e3e', fontWeight: 600}}>{a.violation}</td>
+                                        <td style={{fontWeight: 500}}>{a.id}</td>
+                                        <td style={{color: 'var(--text-muted)'}}>{a.matchId}</td>
+                                        <td style={{color: 'var(--ue-alert)', fontWeight: 600}}>{a.violation}</td>
                                         <td>
                                             <button 
+                                                className="btn-danger"
                                                 onClick={(e) => { 
                                                     e.stopPropagation(); 
                                                     logEvent(`Cmd: Ban execution for ${a.id}`); 
@@ -311,7 +305,6 @@ function App() {
                                                     setAlertsMap(p=>{const n={...p};delete n[a.id];return n;}); 
                                                     if(selectedAlert?.id===a.id)setSelectedAlert(null);
                                                 }}
-                                                style={{background: '#e53e3e', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, cursor: 'pointer'}}
                                             >BAN</button>
                                         </td>
                                     </tr>
@@ -322,21 +315,21 @@ function App() {
                 </div>
 
                 {/* Evidence Panel */}
-                <div style={{width: '350px', background: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '12px', display: 'flex', flexDirection: 'column'}}>
-                    <div style={{fontSize: '11px', fontWeight: 700, color: '#4a5568', textTransform: 'uppercase', marginBottom: '8px'}}>Cold Storage Evidence</div>
+                <div style={{width: '320px', display: 'flex', flexDirection: 'column'}}>
+                    <div style={{fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px'}}>Cold Storage Evidence</div>
                     {selectedAlert ? (
                         <>
-                            <div style={{fontSize: '12px', marginBottom: '12px'}}>
-                                <span style={{fontWeight: 600}}>Target:</span> {selectedAlert.id} <br/>
-                                <span style={{fontWeight: 600}}>SteamID:</span> {selectedAlert.steamId} <br/>
-                                <span style={{fontWeight: 600}}>Server:</span> {selectedAlert.server}
+                            <div style={{fontSize: '12px', marginBottom: '12px', lineHeight: 1.6}}>
+                                <span style={{fontWeight: 600, color: 'var(--text-muted)'}}>Target:</span> {selectedAlert.id} <br/>
+                                <span style={{fontWeight: 600, color: 'var(--text-muted)'}}>SteamID:</span> {selectedAlert.steamId} <br/>
+                                <span style={{fontWeight: 600, color: 'var(--text-muted)'}}>Server:</span> {selectedAlert.server}
                             </div>
-                            <div style={{flex: 1, background: '#1a202c', color: '#a3e635', fontFamily: 'monospace', fontSize: '10px', padding: '8px', borderRadius: '4px', overflowY: 'auto', whiteSpace: 'pre-wrap'}}>
+                            <div className="terminal-block" style={{flex: 1, padding: '12px'}}>
                                 {evidence ? JSON.stringify(evidence, null, 2) : 'Fetching tensor data...'}
                             </div>
                         </>
                     ) : (
-                        <div style={{flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a0aec0', fontSize: '12px', textAlign: 'center'}}>
+                        <div style={{flex: 1, border: '1px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '11px', textAlign: 'center', padding: '24px'}}>
                             Select a row to view associated PyTorch Tensor evidence.
                         </div>
                     )}
@@ -345,20 +338,16 @@ function App() {
         </div>
 
         <div className="card">
-            <div className="card-title">Performance Metrics (live bounds)</div>
-            <div style={{display: 'flex', justifyContent: 'space-between', marginTop: '24px'}}>
+            <div className="card-title">Real-time Telemetry</div>
+            <div style={{display: 'flex', justifyContent: 'space-between', marginTop: '32px'}}>
                 <div>
-                    <div style={{fontSize: '11px', fontWeight: 600, color: '#a0aec0', marginBottom: '8px'}}>Latency</div>
-                    <div style={{fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'baseline', gap: '4px'}}>Web <span style={{fontSize: '24px', fontWeight: 700}}>{latency.web}</span><span style={{fontSize: '12px'}}>ms</span></div>
-                    <div style={{fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'baseline', gap: '4px'}}>Mobile <span style={{fontSize: '20px', fontWeight: 700}}>{latency.mobile}</span><span style={{fontSize: '12px'}}>ms</span></div>
+                    <div style={{fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '12px'}}>Ingestion Latency</div>
+                    <div style={{fontSize: '12px', fontWeight: 500, display: 'flex', alignItems: 'baseline', gap: '8px'}}>Web <span style={{fontSize: '24px', fontWeight: 400, color: 'var(--text-main)'}}>{latency.web}</span><span style={{fontSize: '11px', color: 'var(--text-muted)'}}>ms</span></div>
+                    <div style={{fontSize: '12px', fontWeight: 500, display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '8px'}}>Mobile <span style={{fontSize: '20px', fontWeight: 400, color: 'var(--text-main)'}}>{latency.mobile}</span><span style={{fontSize: '11px', color: 'var(--text-muted)'}}>ms</span></div>
                 </div>
-                <div style={{textAlign: 'center'}}>
-                    <div style={{fontSize: '11px', fontWeight: 600, color: '#a0aec0', marginBottom: '8px'}}>False Positives</div>
-                    <div style={{fontSize: '32px', fontWeight: 700, lineHeight: 1}}>93<span style={{fontSize: '11px', color: '#e53e3e', marginLeft: '4px'}}>&darr; 226</span></div>
-                </div>
-                <div style={{textAlign: 'center'}}>
-                    <div style={{fontSize: '11px', fontWeight: 600, color: '#a0aec0', marginBottom: '8px'}}>Hardware Bans</div>
-                    <div style={{fontSize: '32px', fontWeight: 700, lineHeight: 1}}>{metrics.hardwareBans}<span style={{fontSize: '11px', color: '#a0aec0', marginLeft: '4px'}}>&uarr; {metrics.hardwareBans}</span></div>
+                <div style={{textAlign: 'right'}}>
+                    <div style={{fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '12px'}}>Hardware Bans</div>
+                    <div style={{fontSize: '48px', fontWeight: 300, lineHeight: 1, color: 'var(--text-main)', letterSpacing: '-0.05em'}}>{metrics.hardwareBans}</div>
                 </div>
             </div>
         </div>
@@ -366,44 +355,43 @@ function App() {
 
       <div className="bottom-row">
         <div className="card" style={{gridColumn: 'span 2'}}>
-            <div className="card-title">Detection Distribution Network Health</div>
-            <div style={{display: 'flex'}}>
+            <div className="card-title">Threat Distribution Heatmap</div>
+            <div style={{display: 'flex', marginTop: '16px'}}>
                 <div style={{flex: 1}}>
                     {horizontalBars.map(row => (
                         <div className="horizontal-bar-row" key={row.name}>
                             <div className="h-bar-label">{row.name}</div>
                             <div className="h-bar-track">
-                                <div className="h-bar-fill" style={{width: `${row.aimbot}%`, background: '#fc8181', transition: 'width 1.5s ease'}}></div>
-                                <div className="h-bar-fill" style={{width: `${row.wallhack}%`, background: '#f6ad55', transition: 'width 1.5s ease'}}></div>
-                                <div className="h-bar-fill" style={{width: `${row.speedhack}%`, background: '#63b3ed', transition: 'width 1.5s ease'}}></div>
+                                <div className="h-bar-fill" style={{width: `${row.aimbot}%`, background: '#374151', transition: 'width 1.5s ease'}}></div>
+                                <div className="h-bar-fill" style={{width: `${row.wallhack}%`, background: '#9CA3AF', transition: 'width 1.5s ease'}}></div>
+                                <div className="h-bar-fill" style={{width: `${row.speedhack}%`, background: '#D1D5DB', transition: 'width 1.5s ease'}}></div>
                             </div>
                         </div>
                     ))}
-                    <div style={{marginLeft: '92px', display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#a0aec0', marginTop: '4px'}}>
+                    <div style={{marginLeft: '116px', display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginTop: '8px'}}>
                         <span>0</span><span>50</span><span>100</span><span>150</span><span>200</span><span>250</span><span>300</span><span>350</span><span>400</span>
                     </div>
                 </div>
-                <div style={{width: '120px', paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px', fontWeight: 600}}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}><div style={{width:'8px',height:'8px',background:'#fc8181'}}></div> Aimbot</div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}><div style={{width:'8px',height:'8px',background:'#f6ad55'}}></div> Wallhack</div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}><div style={{width:'8px',height:'8px',background:'#63b3ed'}}></div> Speedhack</div>
+                <div style={{width: '140px', paddingLeft: '32px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><div style={{width:'8px',height:'8px',background:'#374151'}}></div> Aimbot</div>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><div style={{width:'8px',height:'8px',background:'#9CA3AF'}}></div> Wallhack</div>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><div style={{width:'8px',height:'8px',background:'#D1D5DB'}}></div> Speedhack</div>
                 </div>
             </div>
         </div>
 
         <div className="card">
             <div className="card-title" style={{display: 'flex', justifyContent: 'space-between'}}>
-                <span>Infrastructure CPU Usage</span>
-                <span style={{fontSize: '10px', color: '#a0aec0'}}>Updating...</span>
+                <span>Compute Allocation</span>
             </div>
-            <div style={{height: '180px'}}>
+            <div style={{height: '160px'}}>
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={cpuData} margin={{top:0,right:0,left:-20,bottom:0}}>
-                        <YAxis tick={{fontSize: 10}} width={30} />
-                        <XAxis dataKey="name" tick={{fontSize: 9}} interval={0} angle={-30} textAnchor="end" />
-                        <Bar dataKey="user" stackId="a" fill="#ed8936" isAnimationActive={false} />
-                        <Bar dataKey="sys" stackId="a" fill="#fbd38d" isAnimationActive={false} />
-                        <Bar dataKey="idle" stackId="a" fill="#fc8181" isAnimationActive={false} />
+                        <YAxis tick={{fontSize: 10, fill: 'var(--text-muted)'}} width={30} axisLine={false} tickLine={false} />
+                        <XAxis dataKey="name" tick={{fontSize: 10, fill: 'var(--text-muted)'}} axisLine={false} tickLine={false} />
+                        <Bar dataKey="user" stackId="a" fill="var(--graph-user)" isAnimationActive={false} />
+                        <Bar dataKey="sys" stackId="a" fill="var(--graph-sys)" isAnimationActive={false} />
+                        <Bar dataKey="idle" stackId="a" fill="var(--graph-idle)" isAnimationActive={false} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
