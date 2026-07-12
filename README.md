@@ -33,11 +33,18 @@ This repository contains the complete microservice architecture, capable of hori
 ## 🏗️ Core Architecture & Deep Dive
 
 ### 1. Zero-Trust C++ Engine SDK & Cryptography
-The client-side footprint of SentinX is a lockless, ring-buffer driven C++ SDK engineered to hook directly into the game engine's `Tick()` loop.
+The client-side footprint of SentinelX is a lockless, ring-buffer driven C++ SDK engineered to hook directly into the game engine's `Tick()` loop.
 * **Microsecond Overhead:** Heavily optimized C++ guarantees `< 0.1ms` overhead per frame, ensuring competitive frame rates remain untouched.
-* **Dynamic Redis Session Keys:** SentinX abandons insecure global keys. Upon authentication, a temporary 32-byte Session Key is generated and securely distributed via Redis. The edge ingestion server dynamically fetches this key based on the packet's unencrypted `ClientID` prefix, neutralizing Man-in-the-Middle (MitM) memory tampering.
+* **Dynamic Redis Session Keys:** SentinelX abandons insecure global keys. Upon authentication, a temporary 32-byte Session Key is generated and securely distributed via Redis. The edge ingestion server dynamically fetches this key based on the packet's unencrypted `ClientID` prefix, neutralizing Man-in-the-Middle (MitM) memory tampering.
 * **AES-256-GCM Payload Encryption:** Telemetry is encrypted client-side using military-grade `AES-256-GCM` in an *Encrypt-then-MAC* configuration. Utilizing a 96-bit randomized Initialization Vector (IV) per packet entirely prevents payload spoofing and replay attacks.
 * **HMAC-SHA256 Signing:** Ensures mathematical proof of origin before the edge server allocates any resources to process the packet.
+
+### 🔐 Cryptographic Pipeline Deep-Dive
+To fundamentally solve the issue of memory manipulation (where cheat developers inject fake telemetry into the client before encryption), SentinelX enforces a mathematically rigorous zero-trust pipeline:
+1. **The Session Bootstrap:** When a player connects, the server provisions a random `AES-256` key and writes it to the **Redis Memory Store** with a strict TTL, keyed to the player's unique `ClientID`.
+2. **The Packet Prefix:** Every UDP packet sent by the client is prefixed with an 8-byte plaintext `ClientID`.
+3. **The Edge Decryption:** The high-concurrency Go ingestion node reads the `ClientID`, instantly queries **Redis** for the active session key, validates the HMAC-SHA256 signature to guarantee origin authenticity, and then decrypts the AES-GCM payload.
+4. **Dynamic Honeypots:** To trap Wallhacks (ESP), the PyTorch inference engine continuously randomizes the XYZ coordinates of invisible "Honeypot" entities and writes them to Redis. The SDK pulls these coordinates and injects them into the local client memory. Because the coordinates change every 30 seconds, it is mathematically impossible for cheat developers to hardcode whitelist filters against them. If a player aims at these dynamic Redis coordinates, an instantaneous, false-positive-free ban is issued.
 
 ### 2. High-Throughput Go Edge Ingestion (The Frontline)
 The ingress layer is built in Go (`1.23`), leveraging its world-class concurrency model (`goroutines`) to handle massive UDP socket saturation.
