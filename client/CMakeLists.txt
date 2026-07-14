@@ -16,12 +16,22 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Find OpenSSL for Cryptography
+find_package(OpenSSL REQUIRED)
+
 # Compile as a shared dynamic library
 add_library(sentinx_sdk SHARED sentinx_sdk.cpp)
 
-# Cross-Platform Naming Conventions
+# Include directories
+target_include_directories(sentinx_sdk PUBLIC ${OPENSSL_INCLUDE_DIR})
+
+# Link libraries (OpenSSL + Sockets)
 if(WIN32)
+    target_link_libraries(sentinx_sdk PRIVATE OpenSSL::SSL OpenSSL::Crypto ws2_32)
     set_target_properties(sentinx_sdk PROPERTIES PREFIX "")
-elseif(APPLE)
-    set_target_properties(sentinx_sdk PROPERTIES SUFFIX ".dylib")
+else()
+    target_link_libraries(sentinx_sdk PRIVATE OpenSSL::SSL OpenSSL::Crypto pthread)
+    if(APPLE)
+        set_target_properties(sentinx_sdk PROPERTIES SUFFIX ".dylib")
+    endif()
 endif()
