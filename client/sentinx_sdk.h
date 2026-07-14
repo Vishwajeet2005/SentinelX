@@ -2,6 +2,7 @@
 #define SENTINX_SDK_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,17 +31,20 @@ typedef struct SentinxContext SentinxContext;
 // Initialization
 // secret_key must be exactly 32 bytes for HMAC-SHA256
 // client_id_hash is a unique uint64_t identifying the connected client
-SentinxContext* sentinx_init(const uint8_t* secret_key, uint64_t client_id_hash);
+// server_ip and server_port configure the Go Edge Ingestion Node
+SentinxContext* sentinx_init(const uint8_t* secret_key, uint64_t client_id_hash, const char* server_ip, uint16_t server_port);
 
 // Push a single telemetry frame to the internal static ring buffer
 // Returns 0 on success, -1 if buffer is full (fail-open mode)
 int sentinx_push_telemetry(SentinxContext* ctx, const SentinxTelemetryFrame* frame);
 
-// Serialize the pending telemetry payload into the provided pre-allocated byte buffer
-// The payload will contain the HMAC-SHA256 signature, rolling nonce, seq ID, timestamp, and frame data.
-// out_buffer must be large enough to hold the serialized data.
-// Returns the number of bytes written, or -1 on error
-int sentinx_serialize_payload(SentinxContext* ctx, uint8_t* out_buffer, uint32_t max_buffer_size);
+// Start the autonomous UDP background thread that reads from the ring buffer 
+// and blasts AES-256 encrypted packets to the server at 60Hz.
+// Returns 0 on success, non-zero on failure.
+int sentinx_start_network_thread(SentinxContext* ctx);
+
+// Stop the networking thread cleanly
+void sentinx_stop_network_thread(SentinxContext* ctx);
 
 // Cleanup
 void sentinx_destroy(SentinxContext* ctx);
