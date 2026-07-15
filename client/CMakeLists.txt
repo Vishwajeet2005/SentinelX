@@ -35,3 +35,16 @@ else()
         set_target_properties(sentinx_sdk PROPERTIES SUFFIX ".dylib")
     endif()
 endif()
+
+# Automated Testing
+enable_testing()
+add_executable(test_sdk test_sdk.cpp sentinx_sdk.cpp)
+target_include_directories(test_sdk PUBLIC ${OPENSSL_INCLUDE_DIR})
+
+if(WIN32)
+    target_link_libraries(test_sdk PRIVATE OpenSSL::SSL OpenSSL::Crypto ws2_32)
+else()
+    target_link_libraries(test_sdk PRIVATE OpenSSL::SSL OpenSSL::Crypto pthread)
+endif()
+
+add_test(NAME SDKTest COMMAND test_sdk)
