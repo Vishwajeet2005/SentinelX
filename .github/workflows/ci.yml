@@ -1,0 +1,75 @@
+name: SentinelX Enterprise CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test-go:
+    name: Go Ingestion Node (Build & Test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Install Dependencies
+        run: |
+          cd server
+          go mod download || true
+
+      - name: Run Go Unit Tests
+        run: |
+          cd server
+          go test -v ./...
+
+      - name: Verify Build
+        run: |
+          cd server
+          go build -v ./...
+
+  build-and-test-cpp:
+    name: C++ SDK (CMake & OpenSSL)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libssl-dev build-essential
+
+      - name: Configure CMake
+        run: |
+          cd client
+          mkdir build
+          cd build
+          cmake ..
+
+      - name: Build SDK and Test Harness
+        run: |
+          cd client/build
+          make
+
+      - name: Run CTest
+        run: |
+          cd client/build
+          ctest --output-on-failure
+
+  verify-docker-compose:
+    name: Docker Enterprise Orchestration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Build Container Stack
+        run: |
+          docker compose -f docker-compose.enterprise.yml build --parallel
